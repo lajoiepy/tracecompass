@@ -856,7 +856,7 @@ public class ControlFlowView extends AbstractTimeGraphView {
         for (Entry<ThreadStatusDataProvider, Map<Long, ControlFlowEntry>> entry : controlFlowEntries.rowMap().entrySet()) {
             Map<Long, ControlFlowEntry> map = entry.getValue();
             SelectionTimeQueryFilter filter = new SelectionTimeQueryFilter(times, map.keySet());
-            TmfModelResponse<List<ITimeGraphRowModel>> fetchRowModel = entry.getKey().fetchRowModel(filter, monitor);
+            TmfModelResponse<List<ITimeGraphRowModel>> fetchRowModel = entry.getKey().fetchRowModel(filter, getRegex(), monitor);
 
             List<ITimeGraphRowModel> model = fetchRowModel.getModel();
             if (model != null) {
@@ -958,13 +958,13 @@ public class ControlFlowView extends AbstractTimeGraphView {
 
     private static ITimeEvent createTimeEvent(ControlFlowEntry controlFlowEntry, ITimeGraphState state) {
         if (state.getValue() == Integer.MIN_VALUE) {
-            return new NullTimeEvent(controlFlowEntry, state.getStartTime(), state.getDuration());
+            return new NullTimeEvent(controlFlowEntry, state.getStartTime(), state.getDuration(),state.isNotCool());
         }
         String label = state.getLabel();
         if (label != null) {
-            return new NamedTimeEvent(controlFlowEntry, state.getStartTime(), state.getDuration(), (int) state.getValue(), label);
+            return new NamedTimeEvent(controlFlowEntry, state.getStartTime(), state.getDuration(), (int) state.getValue(), label, state.isNotCool());
         }
-        return new TimeEvent(controlFlowEntry, state.getStartTime(), state.getDuration(), (int) state.getValue());
+        return new TimeEvent(controlFlowEntry, state.getStartTime(), state.getDuration(), (int) state.getValue(), state.isNotCool());
     }
 
     @Override
@@ -1008,7 +1008,7 @@ public class ControlFlowView extends AbstractTimeGraphView {
             Map<Long, TimeGraphEntry> map = Maps.uniqueIndex(unfiltered, e -> e.getModel().getId());
             // use time -1 as a lower bound for the end of Time events to be included.
             SelectionTimeQueryFilter filter = new SelectionTimeQueryFilter(time - 1, time, 2, map.keySet());
-            TmfModelResponse<@NonNull List<@NonNull ITimeGraphRowModel>> response = traceEntry.getProvider().fetchRowModel(filter, null);
+            TmfModelResponse<@NonNull List<@NonNull ITimeGraphRowModel>> response = traceEntry.getProvider().fetchRowModel(filter, getRegex(), null);
             List<@NonNull ITimeGraphRowModel> model = response.getModel();
             if (model == null) {
                 continue;

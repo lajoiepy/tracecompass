@@ -161,4 +161,23 @@ public interface ITimeEventStyleStrings {
         return ".border.color";//$NON-NLS-1$
     }
 
+    /**
+     * The event is annotated
+     *
+     * @return the key to get the annotated value
+     * @since 3.3
+     */
+    static String annotated() {
+        return ".annotated"; //$NON-NLS-1$
+    }
+    /**
+     * Link state item property
+     *
+     * @return The key to get the link property of a state item
+     * @since 3.3
+     */
+    static String linkProperty() {
+        return ".is.link"; //$NON-NLS-1$
+    }
+
 }

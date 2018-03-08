@@ -46,4 +46,6 @@ public interface ITimeGraphState {
      */
     @Nullable String getLabel();
 
+    boolean isNotCool();
+
 }

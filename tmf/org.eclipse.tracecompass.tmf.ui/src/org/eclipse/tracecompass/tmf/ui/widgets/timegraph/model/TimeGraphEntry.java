@@ -463,4 +463,11 @@ public class TimeGraphEntry implements ITimeGraphEntry {
         fModel = model;
     }
 
+
+    /**
+     * @since 3.3
+     */
+    public boolean hasZoomedEvents() {
+        return !fZoomedEventList.isEmpty();
+    }
 }

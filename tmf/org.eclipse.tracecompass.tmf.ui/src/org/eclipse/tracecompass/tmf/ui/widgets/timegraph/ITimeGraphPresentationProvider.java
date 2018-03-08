@@ -170,6 +170,16 @@ public interface ITimeGraphPresentationProvider {
     Map<String, String> getEventHoverToolTipInfo(ITimeEvent event, long hoverTime);
 
     /**
+     * Does the presentation have a filter applied to it?
+     *
+     * @return true if there is a filter applied to it
+     * @since 3.3
+     */
+    default boolean isFilterApplied() {
+        return false;
+    }
+
+    /**
      * Check whether time and duration should be displayed in tooltip (after
      * items from {@link #getEventHoverToolTipInfo(ITimeEvent)}).
      *

@@ -15,12 +15,15 @@ package org.eclipse.tracecompass.tmf.ui.views.timegraph;
 import static org.eclipse.tracecompass.common.core.NonNullUtils.checkNotNull;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.function.BiPredicate;
+import java.util.function.Function;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -33,10 +36,12 @@ import org.eclipse.tracecompass.statesystem.core.ITmfStateSystem;
 import org.eclipse.tracecompass.statesystem.core.exceptions.StateSystemDisposedException;
 import org.eclipse.tracecompass.statesystem.core.interval.ITmfStateInterval;
 import org.eclipse.tracecompass.tmf.core.trace.ITmfTrace;
+import org.eclipse.tracecompass.tmf.ui.timegraph.timeeventfilter.TimeEventFilterCu;
 import org.eclipse.tracecompass.tmf.ui.widgets.timegraph.TimeGraphPresentationProvider;
 import org.eclipse.tracecompass.tmf.ui.widgets.timegraph.model.ILinkEvent;
 import org.eclipse.tracecompass.tmf.ui.widgets.timegraph.model.IMarkerEvent;
 import org.eclipse.tracecompass.tmf.ui.widgets.timegraph.model.ITimeEvent;
+import org.eclipse.tracecompass.tmf.ui.widgets.timegraph.model.TimeEvent;
 import org.eclipse.tracecompass.tmf.ui.widgets.timegraph.model.TimeGraphEntry;
 
 import com.google.common.collect.HashMultimap;
@@ -176,6 +181,31 @@ public abstract class AbstractStateSystemTimeGraphView extends AbstractTimeGraph
         private void zoom(@NonNull TimeGraphEntry entry, ITmfStateSystem ss, @NonNull List<List<ITmfStateInterval>> fullStates, @Nullable List<ITmfStateInterval> prevFullState, @NonNull IProgressMonitor monitor) {
             List<ITimeEvent> eventList = getEventList(entry, ss, fullStates, prevFullState, monitor);
             if (eventList != null) {
+
+                String regex = getRegex();
+                if (regex != null) {
+                    TimeEventFilterCu cu = TimeEventFilterCu.compile(regex);
+                    BiPredicate<ITimeEvent, Function<ITimeEvent, Map<String, String>>> predicate = cu != null ? cu.generate() : null;
+                    if (predicate != null) {
+                        eventList.forEach(te -> {
+                            if (te instanceof TimeEvent) {
+                                ((TimeEvent) te).setNotCool(!predicate.test(te, event -> getPresentationProvider().getEventHoverToolTipInfo(event, event.getTime())));
+                            }
+                        });
+
+                        Collection<ITimeEvent> filtered = new ArrayList<>();
+                        if (hideOthers() && entry.hasTimeEvents()) {
+                            eventList.forEach(event -> {
+                                if (event instanceof TimeEvent && !((TimeEvent) event).isNotCool()) {
+                                    filtered.add(event);
+                                }
+                            });
+                            eventList.clear();
+                            eventList.addAll(filtered);
+                        }
+                    }
+                }
+
                 applyResults(() -> {
                     for (ITimeEvent event : eventList) {
                         if (monitor.isCanceled()) {

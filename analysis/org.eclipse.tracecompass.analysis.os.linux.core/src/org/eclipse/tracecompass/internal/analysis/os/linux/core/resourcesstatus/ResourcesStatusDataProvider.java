@@ -11,11 +11,13 @@ package org.eclipse.tracecompass.internal.analysis.os.linux.core.resourcesstatus
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.BiPredicate;
 import java.util.function.Function;
 
 import org.eclipse.core.runtime.IProgressMonitor;
@@ -29,6 +31,7 @@ import org.eclipse.tracecompass.internal.analysis.os.linux.core.kernel.Attribute
 import org.eclipse.tracecompass.internal.analysis.os.linux.core.resourcesstatus.ResourcesEntryModel.Type;
 import org.eclipse.tracecompass.internal.provisional.tmf.core.model.CommonStatusMessage;
 import org.eclipse.tracecompass.internal.provisional.tmf.core.model.filters.SelectionTimeQueryFilter;
+import org.eclipse.tracecompass.internal.provisional.tmf.core.model.filters.SelectionTimeTimeEventQueryFilter;
 import org.eclipse.tracecompass.internal.provisional.tmf.core.model.filters.TimeQueryFilter;
 import org.eclipse.tracecompass.internal.provisional.tmf.core.model.timegraph.AbstractTimeGraphDataProvider;
 import org.eclipse.tracecompass.internal.provisional.tmf.core.model.timegraph.ITimeGraphArrow;
@@ -50,6 +53,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.TreeMultimap;
 import com.google.common.primitives.Ints;
+
+import test.filter.TimeEventFilterCu;
 
 /**
  * Resources status data provider, used by the Resources view for example.
@@ -288,6 +293,62 @@ public class ResourcesStatusDataProvider extends AbstractTimeGraphDataProvider<@
         return rows;
     }
 
+
+    @Override
+    protected @Nullable List<@NonNull ITimeGraphRowModel> getRowModel(@NonNull ITmfStateSystem ss, @NonNull SelectionTimeQueryFilter filter, @NonNull String eventFilter, @Nullable IProgressMonitor monitor) throws StateSystemDisposedException {
+
+        TreeMultimap<Integer, ITmfStateInterval> intervals = TreeMultimap.create(Comparator.naturalOrder(),
+                Comparator.comparing(ITmfStateInterval::getStartTime));
+        Map<@NonNull Long, @NonNull Integer> entries = getSelectedEntries(filter);
+        Collection<Long> times = getTimes(filter, ss.getStartTime(), ss.getCurrentEndTime());
+        /* Do the actual query */
+        for (ITmfStateInterval interval : ss.query2D(entries.values(), times)) {
+            if (monitor != null && monitor.isCanceled()) {
+                return null;
+            }
+            intervals.put(interval.getAttribute(), interval);
+        }
+
+        String filterString = eventFilter;
+        boolean hideOthers = false;
+        if (filter instanceof SelectionTimeTimeEventQueryFilter) {
+            SelectionTimeTimeEventQueryFilter timeEventFilter = (SelectionTimeTimeEventQueryFilter) filter;
+            filterString = timeEventFilter.getRegex();
+            hideOthers = timeEventFilter.hideOthers();
+        }
+        TimeEventFilterCu cu = TimeEventFilterCu.compile(filterString);
+        BiPredicate<ITimeGraphState, Function<ITimeGraphState, Map<String, String>>> predicate = cu != null ? cu.generate() : null;
+        //Predicate<ITimeGraphState> stateFilter = cu != null ? cu.generate(state -> Collections.emptyMap()) : null;
+
+        List<ITimeGraphRowModel> rows = new ArrayList<>();
+
+        for (Map.Entry<Long, Integer> entry : entries.entrySet()) {
+            if (monitor != null && monitor.isCanceled()) {
+                return null;
+            }
+
+            List<ITimeGraphState> eventList = new ArrayList<>();
+            for (ITmfStateInterval interval : intervals.get(entry.getValue())) {
+                ITimeGraphState state = createTimeGraphState(interval, predicate, entry.getKey());
+                if (!state.isNotCool() || !hideOthers) {
+                    eventList.add(state);
+                }
+            }
+//            if (!eventList.isEmpty() || !hideOthers) {
+                rows.add(new TimeGraphRowModel(entry.getKey(), eventList));
+//            }
+        }
+        if (!ss.waitUntilBuilt(0)) {
+            /*
+             * Avoid caching incomplete results from state system.
+             */
+            fTimeEventNames.invalidateAll();
+        }
+        return rows;
+
+
+    }
+
     private ITimeGraphState createTimeGraphState(ITmfStateInterval interval) {
         long startTime = interval.getStartTime();
         long duration = interval.getEndTime() - startTime + 1;
@@ -300,6 +361,33 @@ public class ResourcesStatusDataProvider extends AbstractTimeGraphDataProvider<@
             return new TimeGraphState(startTime, duration, s);
         }
         return new TimeGraphState(startTime, duration, Integer.MIN_VALUE);
+    }
+
+    private ITimeGraphState createTimeGraphState(ITmfStateInterval interval, BiPredicate<ITimeGraphState, Function<ITimeGraphState, Map<String, String>>> predicate, @NonNull Long id) {
+        long startTime = interval.getStartTime();
+        long duration = interval.getEndTime() - startTime + 1;
+        Object status = interval.getValue();
+        TimeGraphState toReturn = null;
+        if (status instanceof Integer) {
+            int s = (int) status;
+            if (s == StateValues.CPU_STATUS_RUN_USERMODE || s == StateValues.CPU_STATUS_RUN_SYSCALL) {
+                toReturn = fTimeEventNames.getUnchecked(interval);
+            } else {
+                toReturn = new TimeGraphState(startTime, duration, s);
+            }
+        }
+        toReturn = toReturn == null ? new TimeGraphState(startTime, duration, Integer.MIN_VALUE) : toReturn;
+
+        if (predicate != null) {
+            SelectionTimeQueryFilter filter = new SelectionTimeQueryFilter(Collections.singletonList(startTime), Collections.singleton(id));
+            TmfModelResponse<Map<String, String>> response = fetchTooltip(filter, null);
+            Map<String, String> model = response.getModel();
+//            Predicate<ITimeGraphState> stateFilter = stateFilter.generate();
+//            if (stateFilter != null) {
+                toReturn.setNotCool(!predicate.test(toReturn, state -> model));
+//            }
+        }
+        return toReturn;
     }
 
     @Override

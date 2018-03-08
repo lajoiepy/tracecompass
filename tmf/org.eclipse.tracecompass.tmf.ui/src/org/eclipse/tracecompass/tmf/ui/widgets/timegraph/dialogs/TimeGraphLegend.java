@@ -13,6 +13,10 @@
 
 package org.eclipse.tracecompass.tmf.ui.widgets.timegraph.dialogs;
 
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.List;
+
 import org.eclipse.jface.dialogs.IDialogConstants;
 import org.eclipse.jface.dialogs.TitleAreaDialog;
 import org.eclipse.jface.layout.GridDataFactory;
@@ -52,6 +56,8 @@ import org.eclipse.tracecompass.internal.tmf.ui.Messages;
 import org.eclipse.tracecompass.tmf.ui.widgets.timegraph.ITimeGraphPresentationProvider;
 import org.eclipse.tracecompass.tmf.ui.widgets.timegraph.StateItem;
 import org.eclipse.tracecompass.tmf.ui.widgets.timegraph.model.ITimeEventStyleStrings;
+
+import com.google.common.collect.Collections2;
 
 /**
  * Legend for the colors used in the time graph view
@@ -113,6 +119,7 @@ public class TimeGraphLegend extends TitleAreaDialog {
         composite.setLayoutData(gd);
 
         createStatesGroup(composite);
+        createLinkGroup(composite);
 
         setTitle(Messages.TmfTimeLegend_LEGEND);
         setDialogHelpAvailable(false);
@@ -163,7 +170,58 @@ public class TimeGraphLegend extends TitleAreaDialog {
         for (int i = 0; i < stateItems.length; i++) {
 
             // draw color with name
-            new LegendEntry(gs, stateItems[i]);
+            StateItem si = stateItems[i];
+            if (!isLinkState(si)) {
+                new LegendEntry(gs, si);
+            }
+        }
+        sc.setMinSize(gs.computeSize(SWT.DEFAULT, SWT.DEFAULT));
+    }
+
+    /**
+     * Test whether a state item is a link state or not
+     *
+     * @param item
+     *            The state item
+     * @return True if the state item is a link state, false otherwise
+     * @since 3.3
+     */
+    protected static boolean isLinkState(StateItem item) {
+        return (Boolean) item.getStyleMap().getOrDefault(ITimeEventStyleStrings.linkProperty(), false);
+    }
+
+    /**
+     * Creates a states group
+     *
+     * @param composite
+     *            the parent composite
+     * @since 3.3
+     */
+    protected void createLinkGroup(Composite composite) {
+        List<StateItem> StateItems = Arrays.asList(fProvider.getStateTable());
+        Collection<StateItem> linkStateItems = Collections2.filter(StateItems, state -> isLinkState(state));
+        if (linkStateItems.isEmpty()) {
+            return;
+        }
+        ScrolledComposite sc = new ScrolledComposite(composite, SWT.V_SCROLL | SWT.H_SCROLL);
+        sc.setExpandHorizontal(true);
+        sc.setExpandVertical(true);
+        Group gs = new Group(sc, SWT.H_SCROLL);
+        sc.setContent(gs);
+        GridData gd = new GridData(SWT.FILL, SWT.FILL, true, true);
+        sc.setLayoutData(gd);
+
+        gs.setText(Messages.TimeGraphLegend_Arrows);
+
+        GridLayout layout = new GridLayout();
+        layout.marginWidth = 20;
+        layout.marginBottom = 10;
+        gs.setLayout(layout);
+
+        // Go through all the defined pairs of state color and state name and
+        // display them.
+        for (StateItem si : linkStateItems) {
+                new LegendEntry(gs, si);
         }
         sc.setMinSize(gs.computeSize(SWT.DEFAULT, SWT.DEFAULT));
     }

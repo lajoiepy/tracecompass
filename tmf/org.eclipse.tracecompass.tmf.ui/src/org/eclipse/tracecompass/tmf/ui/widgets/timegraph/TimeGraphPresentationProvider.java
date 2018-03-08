@@ -23,8 +23,12 @@ import org.eclipse.swt.graphics.Image;
 import org.eclipse.swt.graphics.Rectangle;
 import org.eclipse.tracecompass.internal.tmf.ui.Messages;
 import org.eclipse.tracecompass.tmf.ui.widgets.timegraph.model.ITimeEvent;
+import org.eclipse.tracecompass.tmf.ui.widgets.timegraph.model.ITimeEventStyleStrings;
 import org.eclipse.tracecompass.tmf.ui.widgets.timegraph.model.ITimeGraphEntry;
+import org.eclipse.tracecompass.tmf.ui.widgets.timegraph.model.TimeEvent;
 import org.eclipse.tracecompass.tmf.ui.widgets.timegraph.widgets.ITmfTimeGraphDrawingHelper;
+
+import com.google.common.collect.ImmutableMap;
 
 /**
  * Provider class for the time graph provider
@@ -39,6 +43,8 @@ public class TimeGraphPresentationProvider implements ITimeGraphPresentationProv
 
     // The list of listeners for graph color changes
     private final List<ITimeGraphColorListener> fListeners = new ArrayList<>();
+    private boolean fFilterApplied = false;
+    private boolean fHideEntries = false;
 
     // ------------------------------------------------------------------------
     // Constants
@@ -170,4 +176,48 @@ public class TimeGraphPresentationProvider implements ITimeGraphPresentationProv
         }
     }
 
+    /**
+     * Test if a time event filter is applied
+     *
+     * @since 3.3
+     */
+    @Override
+    public boolean isFilterApplied() {
+        return fFilterApplied;
+    }
+
+    @Override
+    public Map<String, Object> getSpecificEventStyle(ITimeEvent event) {
+        Map<String, Object> specificEventStyle = ITimeGraphPresentationProvider2.super.getSpecificEventStyle(event);
+        if (isFilterApplied() && event instanceof TimeEvent && ((TimeEvent) event).isNotCool()) {
+            Integer color = (Integer) specificEventStyle.getOrDefault(ITimeEventStyleStrings.fillColor(),255);
+            return ImmutableMap.of(ITimeEventStyleStrings.fillColor(), (color.intValue() | 0xff) & 0xffffff3f, ITimeEventStyleStrings.annotated(), true);
+        }
+        return specificEventStyle;
+    }
+
+    /**
+     * Set the timegraph filter applied status
+     *
+     * @param isFilterApplied
+     *            The new timegraph filter applied status
+     * @since 3.3
+     */
+    public void setTimeEventFilterApplied(boolean isFilterApplied) {
+        fFilterApplied = isFilterApplied;
+    }
+
+    /**
+     * @since 3.3
+     */
+    public void setHideEntries(boolean hide) {
+        fHideEntries = hide;
+    }
+
+    /**
+     * @since 3.3
+     */
+    public boolean isHideEntries() {
+        return fHideEntries;
+    }
 }

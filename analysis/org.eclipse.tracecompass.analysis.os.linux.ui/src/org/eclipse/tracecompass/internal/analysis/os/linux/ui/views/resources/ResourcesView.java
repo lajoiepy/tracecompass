@@ -37,7 +37,7 @@ import org.eclipse.tracecompass.internal.analysis.os.linux.ui.Activator;
 import org.eclipse.tracecompass.internal.analysis.os.linux.ui.Messages;
 import org.eclipse.tracecompass.internal.analysis.os.linux.ui.actions.FollowCpuAction;
 import org.eclipse.tracecompass.internal.analysis.os.linux.ui.actions.UnfollowCpuAction;
-import org.eclipse.tracecompass.internal.provisional.tmf.core.model.filters.SelectionTimeQueryFilter;
+import org.eclipse.tracecompass.internal.provisional.tmf.core.model.filters.SelectionTimeTimeEventQueryFilter;
 import org.eclipse.tracecompass.internal.provisional.tmf.core.model.filters.TimeQueryFilter;
 import org.eclipse.tracecompass.internal.provisional.tmf.core.model.timegraph.ITimeGraphRowModel;
 import org.eclipse.tracecompass.internal.provisional.tmf.core.model.timegraph.ITimeGraphState;
@@ -265,8 +265,9 @@ public class ResourcesView extends AbstractTimeGraphView {
         for (Entry<ResourcesStatusDataProvider, Multimap<Long, ResourcesEntry>> entry : resourceEntries.entrySet()) {
             ResourcesStatusDataProvider dataProvider = entry.getKey();
             Multimap<Long, ResourcesEntry> map = entry.getValue();
-            SelectionTimeQueryFilter filter = new SelectionTimeQueryFilter(times, map.keySet());
-            TmfModelResponse<List<ITimeGraphRowModel>> response = dataProvider.fetchRowModel(filter, monitor);
+//            SelectionTimeQueryFilter filter = new SelectionTimeQueryFilter(times, map.keySet());
+            SelectionTimeTimeEventQueryFilter filter = new SelectionTimeTimeEventQueryFilter(times, map.keySet(), getRegex(), hideOthers());
+            TmfModelResponse<List<ITimeGraphRowModel>> response = dataProvider.fetchRowModel(filter, getRegex(), monitor);
 
             List<ITimeGraphRowModel> model = response.getModel();
             if (model != null) {
@@ -286,7 +287,9 @@ public class ResourcesView extends AbstractTimeGraphView {
                 if (isZoomThread) {
                     applyResults(() -> {
                         resourceEntry.setZoomedEventList(events);
-                        if (completed) {
+                        String regex = getRegex();
+                        boolean useSampling = regex == null || regex.isEmpty();
+                        if (completed && useSampling) {
                             resourceEntry.setSampling(sampling);
                         }
                     });
@@ -295,6 +298,7 @@ public class ResourcesView extends AbstractTimeGraphView {
                 }
             }
         }
+//        Display.getDefault().asyncExec(() -> getTimeGraphViewer().getTimeGraphControl().refreshData());
     }
 
     /**
@@ -346,8 +350,7 @@ public class ResourcesView extends AbstractTimeGraphView {
     }
 
     /**
-     * Insert a {@link TimeEvent} from an {@link ITmfStateInterval} into a
-     * {@link }.
+     * Insert a {@link TimeEvent} from an {@link ITmfStateInterval} into a {@link }.
      *
      * @param resourceEntry
      *            resource entry which receives the new entry.
@@ -356,13 +359,13 @@ public class ResourcesView extends AbstractTimeGraphView {
      */
     private static TimeEvent createTimeEvent(ITimeGraphState state, ResourcesEntry resourceEntry) {
         if (state.getValue() == Integer.MIN_VALUE) {
-            return new NullTimeEvent(resourceEntry, state.getStartTime(), state.getDuration());
+            return new NullTimeEvent(resourceEntry, state.getStartTime(), state.getDuration(), state.isNotCool());
         }
         String label = state.getLabel();
         if (label != null) {
-            return new NamedTimeEvent(resourceEntry, state.getStartTime(), state.getDuration(), (int) state.getValue(), label);
+            return new NamedTimeEvent(resourceEntry, state.getStartTime(), state.getDuration(), (int) state.getValue(), label, state.isNotCool());
         }
-        return new TimeEvent(resourceEntry, state.getStartTime(), state.getDuration(), (int) state.getValue());
+        return new TimeEvent(resourceEntry, state.getStartTime(), state.getDuration(), (int) state.getValue(), state.isNotCool());
     }
 
     /**
@@ -383,4 +386,8 @@ public class ResourcesView extends AbstractTimeGraphView {
                 builder -> builder.setData(RESOURCES_FOLLOW_CPU, data));
     }
 
+    @Override
+    protected void saveTimeEventFilter(String regex) {
+
+    }
 }

@@ -2833,4 +2833,24 @@ public class TimeGraphViewer extends Viewer implements ITimeDataProvider, IMarke
         layout.marginRight = Math.max(0, marginSize);
         fTimeAlignedComposite.layout();
     }
+
+    /**
+     * @since 3.3
+     */
+    public void setTimeEventFilterApplied(boolean isFilterApplied) {
+        ITimeGraphPresentationProvider timeGraphProvider = fTimeGraphProvider;
+        if (timeGraphProvider instanceof TimeGraphPresentationProvider) {
+            ((TimeGraphPresentationProvider) timeGraphProvider).setTimeEventFilterApplied(isFilterApplied);
+        }
+    }
+
+    /**
+     * @since 3.3
+     */
+    public void setHideEntries(boolean hide) {
+        ITimeGraphPresentationProvider timeGraphProvider = fTimeGraphProvider;
+        if (timeGraphProvider instanceof TimeGraphPresentationProvider) {
+            ((TimeGraphPresentationProvider) timeGraphProvider).setHideEntries(hide);
+        }
+    }
 }

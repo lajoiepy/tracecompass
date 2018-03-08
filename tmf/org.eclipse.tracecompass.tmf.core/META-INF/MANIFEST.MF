@@ -79,7 +79,8 @@ Export-Package: org.eclipse.tracecompass.internal.provisional.tmf.core.histogram
  org.eclipse.tracecompass.tmf.core.trace.text,
  org.eclipse.tracecompass.tmf.core.uml2sd,
  org.eclipse.tracecompass.tmf.core.util,
- org.eclipse.tracecompass.tmf.core.viewmodel
+ org.eclipse.tracecompass.tmf.core.viewmodel,
+ test.filter
 Import-Package: com.google.common.annotations,
  com.google.common.base,
  com.google.common.cache,
@@ -88,5 +89,9 @@ Import-Package: com.google.common.annotations,
  com.google.common.primitives,
  com.google.gson,
  com.google.gson.annotations,
+ org.antlr.runtime;version="3.2.0",
+ org.antlr.runtime.tree;version="3.2.0",
  org.apache.commons.io,
- org.apache.commons.lang3
+ org.apache.commons.lang3,
+ org.eclipse.tracecompass.ui.timegraph.filter.parser,
+ org.eclipse.tracecompass.ui.timegraph.filter.parser.error

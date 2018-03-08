@@ -34,6 +34,8 @@ public class TimeEvent implements ITimeEvent {
 
     private final int fValue;
 
+    private boolean fNotCool;
+
     /**
      * Default value when no other value present
      */
@@ -55,6 +57,17 @@ public class TimeEvent implements ITimeEvent {
     }
 
     /**
+     * @param entry
+     * @param time
+     * @param duration
+     * @param notCool
+     * @since 3.3
+     */
+    public TimeEvent(ITimeGraphEntry entry, long time, long duration, boolean notCool) {
+        this(entry, time, duration, NOVALUE, notCool);
+    }
+
+    /**
      * Constructor
      *
      * @param entry
@@ -72,6 +85,25 @@ public class TimeEvent implements ITimeEvent {
         fTime = time;
         fDuration = duration;
         fValue = value;
+        fNotCool = false;
+    }
+
+    /**
+     * @param entry
+     * @param time
+     * @param duration
+     * @param value
+     * @param notCool
+     * @since 3.3
+     */
+    public TimeEvent(ITimeGraphEntry entry, long time, long duration, int value, boolean notCool) {
+
+        fEntry = entry;
+        fTime = time;
+        fDuration = duration;
+        fValue = value;
+        fNotCool = notCool;
+
     }
 
     /**
@@ -105,6 +137,14 @@ public class TimeEvent implements ITimeEvent {
     @Override
     public long getDuration() {
         return fDuration;
+    }
+
+    /**
+     * @return
+     * @since 3.3
+     */
+    public boolean isNotCool() {
+        return fNotCool;
     }
 
     @Override
@@ -148,5 +188,13 @@ public class TimeEvent implements ITimeEvent {
     @Override
     public String toString() {
         return getClass().getSimpleName() + " start=" + fTime + " end=" + (fTime + fDuration) + " duration=" + fDuration + (hasValue() ? (" value=" + fValue) : ""); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$
+    }
+
+    /**
+     * @param notCool
+     * @since 3.3
+     */
+    public void setNotCool(boolean notCool) {
+        fNotCool = notCool;
     }
 }

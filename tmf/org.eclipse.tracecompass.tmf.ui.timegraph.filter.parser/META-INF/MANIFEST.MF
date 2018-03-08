@@ -1,0 +1,10 @@
+Manifest-Version: 1.0
+Bundle-ManifestVersion: 2
+Bundle-Name: Trace Compass Timegraph Filter Parser Plug-in
+Bundle-SymbolicName: org.eclipse.tracecompass.ui.timegraph.filter.parser
+Bundle-Version: 1.0.0.qualifier
+Bundle-RequiredExecutionEnvironment: JavaSE-1.8
+Import-Package: org.antlr.runtime;version="3.2.0",
+ org.antlr.runtime.tree;version="3.2.0"
+Export-Package: org.eclipse.tracecompass.ui.timegraph.filter.parser;x-friends:="org.eclipse.tracecompass.tmf.ui, org.eclipse.tracecompass.tmf.core",
+ org.eclipse.tracecompass.ui.timegraph.filter.parser.error;x-friends:="org.eclipse.tracecompass.tmf.ui, org.eclipse.tracecompass.tmf.core"

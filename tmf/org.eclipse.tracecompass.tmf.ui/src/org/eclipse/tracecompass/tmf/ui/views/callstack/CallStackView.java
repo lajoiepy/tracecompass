@@ -40,6 +40,7 @@ import org.eclipse.swt.graphics.Image;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Display;
 import org.eclipse.tracecompass.internal.provisional.tmf.core.model.filters.SelectionTimeQueryFilter;
+import org.eclipse.tracecompass.internal.provisional.tmf.core.model.filters.SelectionTimeTimeEventQueryFilter;
 import org.eclipse.tracecompass.internal.provisional.tmf.core.model.filters.TimeQueryFilter;
 import org.eclipse.tracecompass.internal.provisional.tmf.core.model.timegraph.ITimeGraphEntryModel;
 import org.eclipse.tracecompass.internal.provisional.tmf.core.model.timegraph.ITimeGraphRowModel;
@@ -543,8 +544,11 @@ public class CallStackView extends AbstractTimeGraphView {
         for (Map.Entry<CallStackDataProvider, Map<Long, TimeGraphEntry>> entry : callStackEntries.rowMap().entrySet()) {
             CallStackDataProvider dataProvider = entry.getKey();
             Map<Long, TimeGraphEntry> map = entry.getValue();
-            SelectionTimeQueryFilter filter = new SelectionTimeQueryFilter(times, map.keySet());
-            TmfModelResponse<List<ITimeGraphRowModel>> response = dataProvider.fetchRowModel(filter, monitor);
+//          SelectionTimeQueryFilter filter = new SelectionTimeQueryFilter(times, map.keySet());
+          SelectionTimeTimeEventQueryFilter filter = new SelectionTimeTimeEventQueryFilter(times, map.keySet(), getRegex(), hideOthers());
+          TmfModelResponse<List<ITimeGraphRowModel>> response = dataProvider.fetchRowModel(filter, getRegex(), monitor);
+//            SelectionTimeQueryFilter filter = new SelectionTimeQueryFilter(times, map.keySet());
+//            TmfModelResponse<List<ITimeGraphRowModel>> response = dataProvider.fetchRowModel(filter, monitor);
 
             List<ITimeGraphRowModel> model = response.getModel();
             if (model != null) {
@@ -563,7 +567,9 @@ public class CallStackView extends AbstractTimeGraphView {
                 if (isZoomThread) {
                     applyResults(() -> {
                         callStackEntry.setZoomedEventList(events);
-                        if (completed) {
+                        String regex = getRegex();
+                        boolean useSampling = regex == null || regex.isEmpty();
+                        if (completed && useSampling) {
                             callStackEntry.setSampling(sampling);
                         }
                     });
@@ -619,18 +625,18 @@ public class CallStackView extends AbstractTimeGraphView {
                 int value = ((int) state.getValue()) % modulo + modulo;
                 String label = state.getLabel();
                 if (label != null) {
-                    events.add(new NamedTimeEvent(callStackEntry, time, duration, value, label));
+                    events.add(new NamedTimeEvent(callStackEntry, time, duration, value, label, state.isNotCool()));
                 } else {
-                    events.add(new TimeEvent(callStackEntry, time, duration, value));
+                    events.add(new TimeEvent(callStackEntry, time, duration, value, state.isNotCool()));
                 }
                 lastIsNull = false;
             } else {
                 if (isZoomThread && (lastEndTime == -1 || time + duration >= endTime)) {
                     // add null event if it intersects the start time or end time:
-                    events.add(new NullTimeEvent(callStackEntry, time, duration));
+                    events.add(new NullTimeEvent(callStackEntry, time, duration, state.isNotCool()));
                 } else if (lastEndTime != time && lastIsNull) {
                     // add unknown event if between two null states
-                    events.add(new TimeEvent(callStackEntry, lastEndTime, time - lastEndTime));
+                    events.add(new TimeEvent(callStackEntry, lastEndTime, time - lastEndTime, state.isNotCool()));
                 }
                 lastIsNull = true;
             }

@@ -17,6 +17,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.function.BiPredicate;
+import java.util.function.Function;
 
 import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.core.runtime.SubMonitor;
@@ -24,6 +26,7 @@ import org.eclipse.jdt.annotation.NonNull;
 import org.eclipse.jdt.annotation.Nullable;
 import org.eclipse.tracecompass.internal.provisional.tmf.core.model.CommonStatusMessage;
 import org.eclipse.tracecompass.internal.provisional.tmf.core.model.filters.SelectionTimeQueryFilter;
+import org.eclipse.tracecompass.internal.provisional.tmf.core.model.filters.SelectionTimeTimeEventQueryFilter;
 import org.eclipse.tracecompass.internal.provisional.tmf.core.model.filters.TimeQueryFilter;
 import org.eclipse.tracecompass.internal.provisional.tmf.core.model.timegraph.AbstractTimeGraphDataProvider;
 import org.eclipse.tracecompass.internal.provisional.tmf.core.model.timegraph.ITimeGraphArrow;
@@ -48,6 +51,8 @@ import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
+
+import test.filter.TimeEventFilterCu;
 
 /**
  * Call Stack Data Provider
@@ -233,6 +238,18 @@ public class CallStackDataProvider extends AbstractTimeGraphDataProvider<@NonNul
         }
         subMonitor.worked(1);
 
+        String filterString = "";
+        boolean hideOthers = false;
+        if (filter instanceof SelectionTimeTimeEventQueryFilter) {
+            SelectionTimeTimeEventQueryFilter timeEventFilter = (SelectionTimeTimeEventQueryFilter) filter;
+            filterString = timeEventFilter.getRegex();
+            hideOthers = timeEventFilter.hideOthers();
+        }
+        TimeEventFilterCu cu = TimeEventFilterCu.compile(filterString);
+        BiPredicate<ITimeGraphState, Function<ITimeGraphState, Map<String, String>>> predicate = cu != null ? cu.generate() : null;
+        //Predicate<ITimeGraphState> stateFilter = cu != null ? cu.generate(state -> Collections.emptyMap()) : null;
+
+
         List<ITimeGraphRowModel> rows = new ArrayList<>();
         for (Map.Entry<Long, Integer> entry : entries.entrySet()) {
             if (subMonitor.isCanceled()) {
@@ -240,24 +257,57 @@ public class CallStackDataProvider extends AbstractTimeGraphDataProvider<@NonNul
             }
             Collection<ITmfStateInterval> states = intervals.get(entry.getValue());
             List<ITimeGraphState> eventList = new ArrayList<>(states.size());
-            states.forEach(state -> eventList.add(createTimeGraphState(state)));
+            for (ITmfStateInterval interval : intervals.get(entry.getValue())) {
+                ITimeGraphState state = createTimeGraphState(interval, predicate, entry.getKey());
+                if (!state.isNotCool() || !hideOthers) {
+                    eventList.add(state);
+                }
+            }
             eventList.sort(Comparator.comparingLong(ITimeGraphState::getStartTime));
             rows.add(new TimeGraphRowModel(entry.getKey(), eventList));
         }
         subMonitor.worked(1);
         return rows;
     }
+    @Override
+    protected @Nullable List<@NonNull ITimeGraphRowModel> getRowModel(@NonNull ITmfStateSystem ss, @NonNull SelectionTimeQueryFilter filter, @NonNull String eventFilter, @Nullable IProgressMonitor monitor) throws StateSystemDisposedException {
+        return getRowModel(ss, filter, monitor);
+    }
 
-    private ITimeGraphState createTimeGraphState(ITmfStateInterval interval) {
+//    private ITimeGraphState createTimeGraphState(ITmfStateInterval interval) {
+//        long startTime = interval.getStartTime();
+//        long duration = interval.getEndTime() - startTime + 1;
+//        Object value = interval.getValue();
+//        Integer pid = fQuarkToPid.get(interval.getAttribute());
+//        if (value != null && pid != null) {
+//            String name = fTimeEventNames.getUnchecked(new Pair<>(pid, interval));
+//            return new TimeGraphState(startTime, duration, value.hashCode(), name);
+//        }
+//        return new TimeGraphState(startTime, duration, Integer.MIN_VALUE);
+//    }
+
+    private ITimeGraphState createTimeGraphState(ITmfStateInterval interval, BiPredicate<ITimeGraphState, Function<ITimeGraphState, Map<String, String>>> predicate, @NonNull Long id) {
         long startTime = interval.getStartTime();
         long duration = interval.getEndTime() - startTime + 1;
         Object value = interval.getValue();
+        TimeGraphState toReturn = null;
         Integer pid = fQuarkToPid.get(interval.getAttribute());
         if (value != null && pid != null) {
             String name = fTimeEventNames.getUnchecked(new Pair<>(pid, interval));
-            return new TimeGraphState(startTime, duration, value.hashCode(), name);
+            toReturn = new TimeGraphState(startTime, duration, value.hashCode(), name);
         }
-        return new TimeGraphState(startTime, duration, Integer.MIN_VALUE);
+        toReturn = toReturn == null ? new TimeGraphState(startTime, duration, Integer.MIN_VALUE) : toReturn;
+
+        if (predicate != null) {
+            SelectionTimeQueryFilter filter = new SelectionTimeQueryFilter(Collections.singletonList(startTime), Collections.singleton(id));
+            TmfModelResponse<Map<String, String>> response = fetchTooltip(filter, null);
+            Map<String, String> model = response.getModel();
+//            Predicate<ITimeGraphState> stateFilter = stateFilter.generate();
+//            if (stateFilter != null) {
+                toReturn.setNotCool(!predicate.test(toReturn, state -> model));
+//            }
+        }
+        return toReturn;
     }
 
     @Override

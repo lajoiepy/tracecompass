@@ -82,7 +82,7 @@ public class StateItem {
      *            A state string
      */
     public StateItem(RGB stateColor, String stateString) {
-        int stateColorInt = stateColor.red << 24 | stateColor.green << 16 | stateColor.blue << 8 | 0xff;
+        int stateColorInt = getColorInt(stateColor);
         Map<String, Object> styleMap = new HashMap<>();
         styleMap.put(ITimeEventStyleStrings.fillStyle(), ITimeEventStyleStrings.solidColorFillStyle());
         styleMap.put(ITimeEventStyleStrings.fillColor(), stateColorInt);
@@ -156,5 +156,16 @@ public class StateItem {
      */
     public Map<String, Object> getStyleMap() {
         return fStyleMap;
+    }
+
+    /**
+     * The int value representing the RGB color
+     * @param stateColor
+     *            The RGB color
+     * @return The in value representation of the color
+     * @since 3.3
+     */
+    public static int getColorInt(RGB stateColor) {
+        return stateColor.red << 24 | stateColor.green << 16 | stateColor.blue << 8 | 0xff;
     }
 }

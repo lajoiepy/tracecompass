@@ -86,6 +86,35 @@ public abstract class AbstractTimeGraphDataProvider<A extends TmfStateSystemAnal
         }
     }
 
+    public final TmfModelResponse<List<ITimeGraphRowModel>> fetchRowModel(SelectionTimeQueryFilter filter, String eventFilter, @Nullable IProgressMonitor monitor) {
+        A module = getAnalysisModule();
+        if (!module.waitForInitialization()) {
+            return new TmfModelResponse<>(null, ITmfResponse.Status.FAILED, CommonStatusMessage.ANALYSIS_INITIALIZATION_FAILED);
+        }
+
+        ITmfStateSystem ss = module.getStateSystem();
+        if (ss == null) {
+            return new TmfModelResponse<>(null, ITmfResponse.Status.FAILED, CommonStatusMessage.STATE_SYSTEM_FAILED);
+        }
+
+        long currentEnd = ss.getCurrentEndTime();
+        boolean complete = ss.waitUntilBuilt(0) || filter.getEnd() <= currentEnd;
+
+        try (FlowScopeLog scope = new FlowScopeLogBuilder(LOGGER, Level.FINE, "AbstractTimeGraphDataProvider#fetchRowModel") //$NON-NLS-1$
+                .setCategory(getClass().getSimpleName()).build()) {
+
+            List<ITimeGraphRowModel> models = getRowModel(ss, filter, eventFilter, monitor);
+            if (models == null) {
+                // getRowModel returns null if the query was cancelled.
+                return new TmfModelResponse<>(null, ITmfResponse.Status.CANCELLED, CommonStatusMessage.TASK_CANCELLED);
+            }
+            return new TmfModelResponse<>(models, complete ? Status.COMPLETED : Status.RUNNING,
+                    complete ? CommonStatusMessage.COMPLETED : CommonStatusMessage.RUNNING);
+        } catch (StateSystemDisposedException | TimeRangeException | IndexOutOfBoundsException e) {
+            return new TmfModelResponse<>(null, Status.FAILED, String.valueOf(e.getMessage()));
+        }
+    }
+
     /**
      * Abstract method to be implemented by the providers to return rows. Lets the
      * abstract class handle waiting for {@link ITmfStateSystem} initialization and
@@ -104,5 +133,9 @@ public abstract class AbstractTimeGraphDataProvider<A extends TmfStateSystemAnal
      */
     protected abstract @Nullable List<ITimeGraphRowModel> getRowModel(ITmfStateSystem ss,
             SelectionTimeQueryFilter filter, @Nullable IProgressMonitor monitor)
+            throws StateSystemDisposedException;
+
+    protected abstract @Nullable List<ITimeGraphRowModel> getRowModel(ITmfStateSystem ss,
+            SelectionTimeQueryFilter filter, String eventFilter, @Nullable IProgressMonitor monitor)
             throws StateSystemDisposedException;
 }

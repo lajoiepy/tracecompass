@@ -32,6 +32,13 @@ public class NullTimeEvent extends TimeEvent {
         super(entry, time, duration);
     }
 
+    /**
+     * @since 3.3
+     */
+    public NullTimeEvent(ITimeGraphEntry entry, long time, long duration, boolean notCool) {
+        super(entry, time, duration, notCool);
+    }
+
     @Override
     public ITimeEvent splitBefore(long splitTime) {
         return (splitTime > fTime ?

@@ -18,9 +18,13 @@ import org.eclipse.swt.graphics.RGB;
 import org.eclipse.tracecompass.common.core.NonNullUtils;
 import org.eclipse.tracecompass.tmf.ui.widgets.timegraph.StateItem;
 import org.eclipse.tracecompass.tmf.ui.widgets.timegraph.TimeGraphPresentationProvider;
+import org.eclipse.tracecompass.tmf.ui.widgets.timegraph.model.ILinkEvent;
 import org.eclipse.tracecompass.tmf.ui.widgets.timegraph.model.ITimeEvent;
+import org.eclipse.tracecompass.tmf.ui.widgets.timegraph.model.ITimeEventStyleStrings;
 import org.eclipse.tracecompass.tmf.ui.widgets.timegraph.model.ITimeGraphEntry;
 import org.eclipse.tracecompass.tmf.ui.widgets.timegraph.model.TimeEvent;
+
+import com.google.common.collect.ImmutableMap;
 
 /**
  * Presentation provider for the critical path view
@@ -50,7 +54,11 @@ public class CriticalPathPresentationProvider extends TimeGraphPresentationProvi
         /** Worker is waiting for an IPI */
         IPI(new RGB(0x66, 0x66, 0xcc)),
         /** Any other reason */
-        UNKNOWN(new RGB(0x40, 0x3b, 0x33));
+        UNKNOWN(new RGB(0x40, 0x3b, 0x33)),
+        /** Network communication arrow*/
+        NETWORK_ARROW(new RGB(0xff, 0x9b, 0xff)),
+        /** Unknown arrow*/
+        UNKNOWN_ARROW(new RGB(0x40, 0x3b, 0x33));
 
         /** RGB color associated with a state */
         public final RGB rgb;
@@ -60,13 +68,43 @@ public class CriticalPathPresentationProvider extends TimeGraphPresentationProvi
         }
     }
 
+    /**
+     * The state table index for the network arrow
+     */
+    public static final int NETWORK_ARROW_INDEX;
+    /**
+     * The state table index for the unkown arrow
+     */
+    public static final int UNKNOWN_ARROW_INDEX;
     private static final StateItem[] STATE_TABLE;
     static {
+        int networkArrowIndex = -1;
+        int unknownNetworkIndex = -1;
         STATE_TABLE = new StateItem[State.values().length];
         for (int i = 0; i < STATE_TABLE.length; i++) {
             State state = State.values()[i];
-            STATE_TABLE[i] = new StateItem(state.rgb, state.toString());
+
+            float heightFactor = 1.0f;
+            if (state.equals(State.NETWORK_ARROW)) {
+                networkArrowIndex = i;
+                heightFactor = 0.1f;
+            } else if (state.equals(State.UNKNOWN_ARROW)) {
+                unknownNetworkIndex = i;
+                heightFactor = 0.1f;
+            }
+
+            RGB stateColor = state.rgb;
+            ImmutableMap<String, Object> styleMap = ImmutableMap.of(
+                    ITimeEventStyleStrings.fillStyle(), ITimeEventStyleStrings.solidColorFillStyle(),
+                    ITimeEventStyleStrings.fillColor(), StateItem.getColorInt(stateColor),
+                    ITimeEventStyleStrings.label(), String.valueOf(state.toString()),
+                    ITimeEventStyleStrings.heightFactor(), heightFactor,
+                    ITimeEventStyleStrings.linkProperty(), state.equals(State.NETWORK_ARROW) || state.equals(State.UNKNOWN_ARROW));
+                    STATE_TABLE[i] = new StateItem(styleMap);
         }
+
+        NETWORK_ARROW_INDEX = networkArrowIndex;
+        UNKNOWN_ARROW_INDEX = unknownNetworkIndex;
     }
 
     @Override
@@ -82,7 +120,12 @@ public class CriticalPathPresentationProvider extends TimeGraphPresentationProvi
     @Override
     public int getStateTableIndex(@Nullable ITimeEvent event) {
         if (event instanceof TimeEvent && ((TimeEvent) event).hasValue()) {
-            return ((TimeEvent) event).getValue();
+            int value = ((TimeEvent) event).getValue();
+            if (event instanceof ILinkEvent) {
+                //return the right arrow item index
+                return getStateTable()[value].getStateString().equals(State.NETWORK.toString()) ? NETWORK_ARROW_INDEX : UNKNOWN_ARROW_INDEX;
+            }
+            return value;
         }
         return TRANSPARENT;
     }

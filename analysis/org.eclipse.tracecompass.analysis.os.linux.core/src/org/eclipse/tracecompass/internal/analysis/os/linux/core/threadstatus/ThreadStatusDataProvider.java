@@ -22,6 +22,7 @@ import java.util.NavigableSet;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.BiPredicate;
 import java.util.function.Function;
 
 import org.eclipse.core.runtime.IProgressMonitor;
@@ -63,6 +64,8 @@ import com.google.common.collect.Iterators;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.google.common.collect.TreeMultimap;
+
+import test.filter.TimeEventFilterCu;
 
 /**
  * Thread status data provider, used by the Control Flow view for example.
@@ -396,6 +399,51 @@ public class ThreadStatusDataProvider extends AbstractTmfTraceDataProvider imple
         return new TmfModelResponse<>(rows, ITmfResponse.Status.COMPLETED, CommonStatusMessage.COMPLETED);
     }
 
+    public TmfModelResponse<List<ITimeGraphRowModel>> fetchRowModel(SelectionTimeQueryFilter filter, @NonNull String eventFilter, IProgressMonitor monitor) {
+        ITmfStateSystem ss = fModule.getStateSystem();
+        if (ss == null) {
+            return new TmfModelResponse<>(null, ITmfResponse.Status.FAILED, CommonStatusMessage.ANALYSIS_INITIALIZATION_FAILED);
+        }
+
+        TreeMultimap<Integer, ITmfStateInterval> intervals = TreeMultimap.create(Comparator.naturalOrder(),
+                Comparator.comparing(ITmfStateInterval::getStartTime));
+        Collection<Integer> quarks = getQuarks(filter);
+        Collection<Integer> stateAndSyscallQuarks = addSyscall(quarks, ss);
+        Collection<Long> times = getTimes(ss, filter);
+        try {
+            /* Do the actual query */
+            for (ITmfStateInterval interval : ss.query2D(stateAndSyscallQuarks, times)) {
+                if (monitor != null && monitor.isCanceled()) {
+                    return new TmfModelResponse<>(null, ITmfResponse.Status.CANCELLED, CommonStatusMessage.TASK_CANCELLED);
+                }
+                intervals.put(interval.getAttribute(), interval);
+            }
+        } catch (TimeRangeException | StateSystemDisposedException e) {
+            return new TmfModelResponse<>(null, ITmfResponse.Status.FAILED, String.valueOf(e.getMessage()));
+        }
+
+        TimeEventFilterCu cu = TimeEventFilterCu.compile(eventFilter);
+        BiPredicate<ITimeGraphState, Function<ITimeGraphState, Map<String, String>>> predicate = cu != null ? cu.generate() : null;
+        List<ITimeGraphRowModel> rows = new ArrayList<>();
+        for (Integer quark : quarks) {
+            String threadAttributeName = ss.getAttributeName(quark);
+            Pair<Integer, Integer> tidCpu = Attributes.parseThreadAttributeName(threadAttributeName);
+            NavigableSet<ITmfStateInterval> states = intervals.get(quark);
+            NavigableSet<ITmfStateInterval> syscalls = intervals.get(ss.optQuarkRelative(quark, Attributes.SYSTEM_CALL));
+
+            // Handle PID reuse
+            for (ThreadEntryModel.Builder cfe : fTidToEntry.get(tidCpu.getFirst())) {
+                if (monitor != null && monitor.isCanceled()) {
+                    return new TmfModelResponse<>(null, ITmfResponse.Status.CANCELLED, CommonStatusMessage.TASK_CANCELLED);
+                }
+
+                List<ITimeGraphState> eventList = Lists.newArrayList(Iterables.transform(states, i -> createTimeGraphState(i, syscalls, predicate, cfe.getId())));
+                rows.add(new TimeGraphRowModel(cfe.getId(), eventList));
+            }
+        }
+        return new TmfModelResponse<>(rows, ITmfResponse.Status.COMPLETED, CommonStatusMessage.COMPLETED);
+    }
+
     private Collection<Integer> getQuarks(SelectionTimeQueryFilter filter) {
         Collection<Integer> set = new HashSet<>();
         for (Long id : filter.getSelectedItems()) {
@@ -460,6 +508,42 @@ public class ThreadStatusDataProvider extends AbstractTmfTraceDataProvider imple
             return new TimeGraphState(startTime, duration, s);
         }
         return new TimeGraphState(startTime, duration, Integer.MIN_VALUE);
+    }
+
+    private ITimeGraphState createTimeGraphState(ITmfStateInterval interval, NavigableSet<ITmfStateInterval> syscalls, BiPredicate<ITimeGraphState, Function<ITimeGraphState, Map<String, String>>> predicate, long id) {
+        long startTime = interval.getStartTime();
+        long duration = interval.getEndTime() - startTime + 1;
+        Object status = interval.getValue();
+        TimeGraphState toReturn = null;
+        if (status instanceof Integer) {
+            int s = (int) status;
+            if (s == StateValues.PROCESS_STATUS_RUN_SYSCALL) {
+                // intervals are sorted by start time
+                ITmfStateInterval syscall = syscalls.floor(new TmfStateInterval(startTime, startTime + 1, 0, 0));
+
+                if (syscall != null) {
+                    Object value = syscall.getValue();
+                    if (value instanceof String) {
+                        toReturn = new TimeGraphState(startTime, duration, s, fSyscallTrim.apply((String) value));
+                    }
+                }
+            }
+            toReturn = toReturn == null? new TimeGraphState(startTime, duration, s) : toReturn;
+        }
+        toReturn = toReturn == null ? new TimeGraphState(startTime, duration, Integer.MIN_VALUE) : toReturn;
+
+        if (predicate != null) {
+            SelectionTimeQueryFilter filter = new SelectionTimeQueryFilter(startTime, startTime, 1, Collections.singletonList(id));
+            TmfModelResponse<Map<String, String>> response = fetchTooltip(filter, null);
+            Map<String, String> model = response.getModel();
+//            Predicate<ITimeGraphState> stateFilter = cu.generate(state -> model);
+//            if (stateFilter != null) {
+                boolean test = predicate.test(toReturn, state -> model);
+                toReturn.setNotCool(!test);
+//            }
+        }
+
+        return toReturn;
     }
 
     @Override

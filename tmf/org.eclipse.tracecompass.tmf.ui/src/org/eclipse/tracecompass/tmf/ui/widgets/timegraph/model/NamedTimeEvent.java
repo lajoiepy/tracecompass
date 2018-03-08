@@ -42,6 +42,12 @@ public class NamedTimeEvent extends TimeEvent {
         fLabel = label.intern();
     }
 
+    public NamedTimeEvent(ITimeGraphEntry entry, long time, long duration,
+            int value, @NonNull String label, boolean notCool) {
+        super(entry, time, duration, value, notCool);
+        fLabel = label.intern();
+    }
+
     /**
      * Getter for the label
      *
