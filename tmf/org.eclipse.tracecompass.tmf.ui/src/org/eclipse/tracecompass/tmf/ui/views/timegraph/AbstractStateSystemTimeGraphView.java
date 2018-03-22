@@ -15,12 +15,15 @@ package org.eclipse.tracecompass.tmf.ui.views.timegraph;
 import static org.eclipse.tracecompass.common.core.NonNullUtils.checkNotNull;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.function.BiPredicate;
+import java.util.function.Function;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -33,6 +36,7 @@ import org.eclipse.tracecompass.statesystem.core.ITmfStateSystem;
 import org.eclipse.tracecompass.statesystem.core.exceptions.StateSystemDisposedException;
 import org.eclipse.tracecompass.statesystem.core.interval.ITmfStateInterval;
 import org.eclipse.tracecompass.tmf.core.trace.ITmfTrace;
+import org.eclipse.tracecompass.tmf.ui.widgets.timegraph.ITimeGraphPresentationProvider;
 import org.eclipse.tracecompass.tmf.ui.widgets.timegraph.TimeGraphPresentationProvider;
 import org.eclipse.tracecompass.tmf.ui.widgets.timegraph.model.ILinkEvent;
 import org.eclipse.tracecompass.tmf.ui.widgets.timegraph.model.IMarkerEvent;
@@ -40,6 +44,7 @@ import org.eclipse.tracecompass.tmf.ui.widgets.timegraph.model.ITimeEvent;
 import org.eclipse.tracecompass.tmf.ui.widgets.timegraph.model.TimeGraphEntry;
 
 import com.google.common.collect.HashMultimap;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
 
 /**
@@ -175,7 +180,40 @@ public abstract class AbstractStateSystemTimeGraphView extends AbstractTimeGraph
 
         private void zoom(@NonNull TimeGraphEntry entry, ITmfStateSystem ss, @NonNull List<List<ITmfStateInterval>> fullStates, @Nullable List<ITmfStateInterval> prevFullState, @NonNull IProgressMonitor monitor) {
             List<ITimeEvent> eventList = getEventList(entry, ss, fullStates, prevFullState, monitor);
+
+            String regex = getRegex();
+            BiPredicate<ITimeEvent, Function<ITimeEvent, Map<String, String>>> predicate = (event, function) -> {
+                Map<String, String> toTest = function.apply(event);
+                if (toTest == null) {
+                    toTest = new HashMap<>();
+                }
+                String entryName = event.getEntry().getName();
+                if (entryName != null) {
+                    toTest.put("entry", entryName); //$NON-NLS-1$
+                }
+                return Iterables.any(toTest.entrySet(), item -> item.getValue().toLowerCase().contains(regex.toLowerCase()));
+            };
+
             if (eventList != null) {
+
+                if (!regex.isEmpty()) {
+                    eventList.forEach(te -> {
+                        te.setNotCool(!predicate.test(te, event -> getPresentationProvider().getEventHoverToolTipInfo(event, event.getTime())));
+                    });
+                }
+                Collection<ITimeEvent> filtered = new ArrayList<>();
+                ITimeGraphPresentationProvider timeGraphProvider = getTimeGraphViewer().getTimeGraphProvider();
+                if (timeGraphProvider instanceof TimeGraphPresentationProvider && ((TimeGraphPresentationProvider) timeGraphProvider).isHideNotCool()
+                        && entry.hasTimeEvents()) {
+                    eventList.forEach(event -> {
+                        if (!event.isNotCool()) {
+                            filtered.add(event);
+                        }
+                    });
+                    eventList.clear();
+                    eventList.addAll(filtered);
+                }
+
                 applyResults(() -> {
                     for (ITimeEvent event : eventList) {
                         if (monitor.isCanceled()) {

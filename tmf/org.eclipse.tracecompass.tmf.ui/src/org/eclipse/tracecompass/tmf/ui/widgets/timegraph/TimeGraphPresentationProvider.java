@@ -23,13 +23,17 @@ import org.eclipse.swt.graphics.Image;
 import org.eclipse.swt.graphics.Rectangle;
 import org.eclipse.tracecompass.internal.tmf.ui.Messages;
 import org.eclipse.tracecompass.tmf.ui.widgets.timegraph.model.ITimeEvent;
+import org.eclipse.tracecompass.tmf.ui.widgets.timegraph.model.ITimeEventStyleStrings;
 import org.eclipse.tracecompass.tmf.ui.widgets.timegraph.model.ITimeGraphEntry;
 import org.eclipse.tracecompass.tmf.ui.widgets.timegraph.widgets.ITmfTimeGraphDrawingHelper;
+
+import com.google.common.collect.ImmutableMap;
 
 /**
  * Provider class for the time graph provider
  *
  * @author Patrick Tasse
+ * @since 3.4
  *
  */
 public class TimeGraphPresentationProvider implements ITimeGraphPresentationProvider2 {
@@ -39,6 +43,8 @@ public class TimeGraphPresentationProvider implements ITimeGraphPresentationProv
 
     // The list of listeners for graph color changes
     private final List<ITimeGraphColorListener> fListeners = new ArrayList<>();
+    private boolean fFilterApplied = false;
+    private boolean fHideNotCool = false;
 
     // ------------------------------------------------------------------------
     // Constants
@@ -170,4 +176,52 @@ public class TimeGraphPresentationProvider implements ITimeGraphPresentationProv
         }
     }
 
+    @Override
+    public Map<String, Object> getSpecificEventStyle(ITimeEvent event) {
+        Map<String, Object> specificEventStyle = ITimeGraphPresentationProvider2.super.getSpecificEventStyle(event);
+        if (isFilterApplied() && event.isNotCool()) {
+            Integer color = (Integer) specificEventStyle.getOrDefault(ITimeEventStyleStrings.fillColor(), 255);
+            return ImmutableMap.of(ITimeEventStyleStrings.fillColor(), (color.intValue() | 0xff) & 0xffffff3f, ITimeEventStyleStrings.annotated(), true);
+        }
+        return specificEventStyle;
+    }
+
+    /**
+     * @since 3.4
+     */
+    @Override
+    public boolean isFilterApplied() {
+        return fFilterApplied;
+    }
+
+    /**
+     * Activate or deactivate the timegraph filtering mode
+     *
+     * @param isFilterApplied
+     *            The new timegraph filtering mode status
+     * @since 3.4
+     */
+    public void setTimegraphFilteringModeStatus(boolean isFilterApplied) {
+        fFilterApplied = isFilterApplied;
+    }
+
+    /**
+     * Set hide option of the filtering mode of the timegraph view. When this option
+     * is active, unmatched time events should be hidden.
+     *
+     * @param hide
+     *            The new value of the hide option
+     * @since 3.4
+     */
+    public void setHideEntries(boolean hide) {
+        fHideNotCool = hide;
+    }
+
+    /**
+     * @since 3.4
+     */
+    @Override
+    public boolean isHideNotCool() {
+        return fHideNotCool;
+    }
 }

@@ -191,4 +191,14 @@ public interface ITimeEventStyleStrings {
     static String linkType() {
         return ".type.link"; //$NON-NLS-1$
     }
+
+    /**
+     * The event is annotated
+     *
+     * @return the key to get the annotated value
+     * @since 3.4
+     */
+    static String annotated() {
+        return ".annotated"; //$NON-NLS-1$
+    }
 }

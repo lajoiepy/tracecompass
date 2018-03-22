@@ -2833,4 +2833,32 @@ public class TimeGraphViewer extends Viewer implements ITimeDataProvider, IMarke
         layout.marginRight = Math.max(0, marginSize);
         fTimeAlignedComposite.layout();
     }
+
+    /**
+     * set whether a filtering on time events is active or not
+     *
+     * @param isFilterApplied
+     *            The time events filtering status
+     * @since 3.4
+     */
+    public void setTimeEventFilterApplied(boolean isFilterApplied) {
+        ITimeGraphPresentationProvider timeGraphProvider = fTimeGraphProvider;
+        if (timeGraphProvider instanceof TimeGraphPresentationProvider) {
+            ((TimeGraphPresentationProvider) timeGraphProvider).setTimegraphFilteringModeStatus(isFilterApplied);
+        }
+    }
+
+    /**
+     * Set whether unmatched time events need to be hidden or not
+     *
+     * @param hide
+     *            The hidden status of the unmatched time events
+     * @since 3.4
+     */
+    public void setHideEntries(boolean hide) {
+        ITimeGraphPresentationProvider timeGraphProvider = fTimeGraphProvider;
+        if (timeGraphProvider instanceof TimeGraphPresentationProvider) {
+            ((TimeGraphPresentationProvider) timeGraphProvider).setHideEntries(hide);
+        }
+    }
 }

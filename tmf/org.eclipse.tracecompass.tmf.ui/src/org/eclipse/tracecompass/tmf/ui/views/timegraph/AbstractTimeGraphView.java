@@ -31,6 +31,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.BiPredicate;
+import java.util.function.Function;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
@@ -64,6 +66,7 @@ import org.eclipse.jface.action.IToolBarManager;
 import org.eclipse.jface.action.MenuManager;
 import org.eclipse.jface.action.Separator;
 import org.eclipse.jface.commands.ActionHandler;
+import org.eclipse.jface.dialogs.Dialog;
 import org.eclipse.jface.viewers.AbstractTreeViewer;
 import org.eclipse.jface.viewers.ILabelProvider;
 import org.eclipse.jface.viewers.ILabelProviderListener;
@@ -72,20 +75,28 @@ import org.eclipse.jface.viewers.ITreeContentProvider;
 import org.eclipse.jface.viewers.ViewerFilter;
 import org.eclipse.osgi.util.NLS;
 import org.eclipse.swt.SWT;
+import org.eclipse.swt.events.KeyEvent;
+import org.eclipse.swt.events.KeyListener;
 import org.eclipse.swt.events.MenuDetectEvent;
 import org.eclipse.swt.events.MenuDetectListener;
 import org.eclipse.swt.events.PaintEvent;
 import org.eclipse.swt.events.PaintListener;
 import org.eclipse.swt.events.SelectionAdapter;
 import org.eclipse.swt.events.SelectionEvent;
+import org.eclipse.swt.graphics.Color;
 import org.eclipse.swt.graphics.Image;
 import org.eclipse.swt.graphics.Point;
 import org.eclipse.swt.graphics.RGBA;
+import org.eclipse.swt.graphics.Rectangle;
+import org.eclipse.swt.layout.GridData;
+import org.eclipse.swt.layout.GridLayout;
 import org.eclipse.swt.widgets.Composite;
+import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Event;
 import org.eclipse.swt.widgets.Menu;
 import org.eclipse.swt.widgets.Shell;
+import org.eclipse.swt.widgets.Text;
 import org.eclipse.swt.widgets.Tree;
 import org.eclipse.swt.widgets.TreeColumn;
 import org.eclipse.tracecompass.common.core.NonNullUtils;
@@ -124,6 +135,7 @@ import org.eclipse.tracecompass.tmf.ui.views.SaveImageUtil;
 import org.eclipse.tracecompass.tmf.ui.views.TmfView;
 import org.eclipse.tracecompass.tmf.ui.widgets.timegraph.ITimeGraphBookmarkListener;
 import org.eclipse.tracecompass.tmf.ui.widgets.timegraph.ITimeGraphContentProvider;
+import org.eclipse.tracecompass.tmf.ui.widgets.timegraph.ITimeGraphPresentationProvider;
 import org.eclipse.tracecompass.tmf.ui.widgets.timegraph.ITimeGraphPresentationProvider2;
 import org.eclipse.tracecompass.tmf.ui.widgets.timegraph.ITimeGraphRangeListener;
 import org.eclipse.tracecompass.tmf.ui.widgets.timegraph.ITimeGraphTimeListener;
@@ -145,9 +157,11 @@ import org.eclipse.tracecompass.tmf.ui.widgets.timegraph.widgets.TimeGraphContro
 import org.eclipse.tracecompass.tmf.ui.widgets.timegraph.widgets.Utils.TimeFormat;
 import org.eclipse.ui.IActionBars;
 import org.eclipse.ui.IPartListener;
+import org.eclipse.ui.IPartListener2;
 import org.eclipse.ui.IWorkbenchActionConstants;
 import org.eclipse.ui.IWorkbenchPage;
 import org.eclipse.ui.IWorkbenchPart;
+import org.eclipse.ui.IWorkbenchPartReference;
 import org.eclipse.ui.IWorkbenchPartSite;
 import org.eclipse.ui.PartInitException;
 import org.eclipse.ui.PlatformUI;
@@ -317,6 +331,15 @@ public abstract class AbstractTimeGraphView extends TmfView implements ITmfTimeA
      */
     private static final ShowFindDialogAction FIND_ACTION = new ShowFindDialogAction();
 
+    private static final int FIND_X_WIDTH_HINT = 200;
+
+    private static final int X_OFFSET = -10;
+
+    private static final int Y_OFFSET = -15;
+
+    /** The time event filter regex */
+    private String fRegex;
+
     /** The find action handler */
     private ActionHandler fFindActionHandler;
 
@@ -331,6 +354,14 @@ public abstract class AbstractTimeGraphView extends TmfView implements ITmfTimeA
 
     /** The original view title */
     private String fOriginalTabLabel;
+
+    /** The timegraph event filter action */
+    private Action fTimeEventFilterAction;
+
+    /** The time graph event filter dialog */
+    private TimeEventFilterDialog fTimeEventFilterDialog;
+
+    private TimeGraphPartListener2 fPartListener2;
 
     // ------------------------------------------------------------------------
     // Classes
@@ -603,12 +634,43 @@ public abstract class AbstractTimeGraphView extends TmfView implements ITmfTimeA
      */
     protected void zoomEntries(@NonNull Iterable<@NonNull TimeGraphEntry> entries,
             long zoomStartTime, long zoomEndTime, long resolution, @NonNull IProgressMonitor monitor) {
+
+        String regex = getRegex();
+        BiPredicate<ITimeEvent, Function<ITimeEvent, Map<String, String>>> predicate = (event, function) -> {
+            Map<String, String> toTest = function.apply(event);
+            if (toTest == null) {
+                toTest = new HashMap<>();
+            }
+            String entryName = event.getEntry().getName();
+            if (entryName != null) {
+                toTest.put("entry", entryName); //$NON-NLS-1$
+            }
+            return Iterables.any(toTest.entrySet(), entry -> entry.getValue().toLowerCase().contains(regex.toLowerCase()));
+        };
+
         for (TimeGraphEntry entry : entries) {
             List<ITimeEvent> zoomedEventList = getEventList(entry, zoomStartTime, zoomEndTime, resolution, monitor);
             if (monitor.isCanceled()) {
                 return;
             }
             if (zoomedEventList != null) {
+                if (!regex.isEmpty()) {
+                    zoomedEventList.forEach(te -> {
+                        te.setNotCool(!predicate.test(te, event -> getPresentationProvider().getEventHoverToolTipInfo(event, event.getTime())));
+                    });
+                }
+                Collection<ITimeEvent> filtered = new ArrayList<>();
+                ITimeGraphPresentationProvider timeGraphProvider = fTimeGraphViewer.getTimeGraphProvider();
+                if (timeGraphProvider instanceof TimeGraphPresentationProvider && ((TimeGraphPresentationProvider) timeGraphProvider).isHideNotCool()
+                        && entry.hasTimeEvents()) {
+                    zoomedEventList.forEach(event -> {
+                        if (!event.isNotCool()) {
+                            filtered.add(event);
+                        }
+                    });
+                    zoomedEventList.clear();
+                    zoomedEventList.addAll(filtered);
+                }
                 applyResults(() -> entry.setZoomedEventList(zoomedEventList));
             }
         }
@@ -1034,6 +1096,38 @@ public abstract class AbstractTimeGraphView extends TmfView implements ITmfTimeA
 
         fTimeGraphViewer.setWeights(fWeight);
 
+        TimeGraphControl timeGraphControl = fTimeGraphViewer.getTimeGraphControl();
+
+        fTimeEventFilterAction = new Action() {
+
+            @Override
+            public void run() {
+                Point point = timeGraphControl.toControl(timeGraphControl.getDisplay().getCursorLocation());
+                if (point.x > fTimeGraphViewer.getNameSpace()) {
+                    Rectangle bounds = timeGraphControl.getBounds();
+                    if (fTimeEventFilterDialog != null) {
+                        fTimeEventFilterDialog.close();
+                    }
+                    fTimeEventFilterDialog = new TimeEventFilterDialog(timeGraphControl.getShell(), getFilterBounds(bounds));
+                    fTimeEventFilterDialog.open();
+                }
+            }
+        };
+
+        timeGraphControl.addKeyListener(new KeyListener() {
+            @Override
+            public void keyPressed(KeyEvent e) {
+                if ((e.stateMask & SWT.CTRL) == SWT.CTRL && (e.stateMask & SWT.SHIFT) == SWT.SHIFT && e.keyCode == 'f') {
+                    fTimeEventFilterAction.run();
+                }
+            }
+
+            @Override
+            public void keyReleased(KeyEvent e) {
+                // Do nothing
+            }
+        });
+
         fTimeGraphViewer.addRangeListener(new ITimeGraphRangeListener() {
             @Override
             public void timeRangeUpdated(TimeGraphRangeUpdateEvent event) {
@@ -1104,7 +1198,7 @@ public abstract class AbstractTimeGraphView extends TmfView implements ITmfTimeA
             }
         });
 
-        fTimeGraphViewer.getTimeGraphControl().addPaintListener(new PaintListener() {
+        timeGraphControl.addPaintListener(new PaintListener() {
 
             /**
              * This paint control allows the virtual time graph refresh to occur on paint
@@ -1119,7 +1213,7 @@ public abstract class AbstractTimeGraphView extends TmfView implements ITmfTimeA
             @Override
             public void paintControl(PaintEvent e) {
                 TmfUiRefreshHandler.getInstance().queueUpdate(this, () -> {
-                    if (fTimeGraphViewer.getTimeGraphControl().isDisposed()) {
+                    if (timeGraphControl.isDisposed()) {
                         return;
                     }
                     int timeSpace = getTimeGraphViewer().getTimeSpace();
@@ -1141,7 +1235,7 @@ public abstract class AbstractTimeGraphView extends TmfView implements ITmfTimeA
         fTimeGraphViewer.setTimeFormat(TimeFormat.CALENDAR);
 
         IStatusLineManager statusLineManager = getViewSite().getActionBars().getStatusLineManager();
-        fTimeGraphViewer.getTimeGraphControl().setStatusLineManager(statusLineManager);
+        timeGraphControl.setStatusLineManager(statusLineManager);
 
         // View Action Handling
         makeActions();
@@ -1160,6 +1254,9 @@ public abstract class AbstractTimeGraphView extends TmfView implements ITmfTimeA
         createContextMenu();
         fPartListener = new TimeGraphPartListener();
         getSite().getPage().addPartListener(fPartListener);
+
+        fPartListener2 = new TimeGraphPartListener2();
+        getSite().getPage().addPartListener(fPartListener2);
 
         fOriginalTabLabel = getPartName();
     }
@@ -1212,6 +1309,7 @@ public abstract class AbstractTimeGraphView extends TmfView implements ITmfTimeA
         }
         ResourcesPlugin.getWorkspace().removeResourceChangeListener(this);
         getSite().getPage().removePartListener(fPartListener);
+        getSite().getPage().removePartListener(fPartListener2);
     }
 
     /**
@@ -2320,6 +2418,20 @@ public abstract class AbstractTimeGraphView extends TmfView implements ITmfTimeA
         getSite().registerContextMenu(fEntryMenuManager, fTimeGraphViewer.getSelectionProvider());
     }
 
+    private Point getFilterBounds(Rectangle bounds) {
+        return fTimeGraphViewer.getTimeGraphControl().toDisplay(new Point(bounds.x + bounds.width - FIND_X_WIDTH_HINT + X_OFFSET, bounds.y + bounds.height + Y_OFFSET));
+    }
+
+    /**
+     * Get the time event filter regex
+     *
+     * @return The time event filter regex
+     * @since 3.4
+     */
+    protected @NonNull String getRegex() {
+        return NonNullUtils.nullToEmptyString(fRegex);
+    }
+
     /**
      * Fill context menu
      *
@@ -2390,5 +2502,173 @@ public abstract class AbstractTimeGraphView extends TmfView implements ITmfTimeA
         @Override
         public void partOpened(IWorkbenchPart part) {
         }
+    }
+
+    class TimeGraphPartListener2 implements IPartListener2 {
+
+        @Override
+        public void partActivated(IWorkbenchPartReference partRef) {
+            // TODO Auto-generated method stub
+
+        }
+
+        @Override
+        public void partBroughtToTop(IWorkbenchPartReference partRef) {
+            // TODO Auto-generated method stub
+
+        }
+
+        @Override
+        public void partClosed(IWorkbenchPartReference partRef) {
+            // TODO Auto-generated method stub
+
+        }
+
+        @Override
+        public void partDeactivated(IWorkbenchPartReference partRef) {
+            // TODO Auto-generated method stub
+
+        }
+
+        @Override
+        public void partOpened(IWorkbenchPartReference partRef) {
+            // TODO Auto-generated method stub
+
+        }
+
+        @Override
+        public void partHidden(IWorkbenchPartReference partRef) {
+            IWorkbenchPart part = partRef.getPart(false);
+            if (part != null && part == AbstractTimeGraphView.this) {
+                Display.getDefault().asyncExec(() -> {
+                    if (fTimeEventFilterDialog != null) {
+                        fTimeEventFilterDialog.close();
+                    }
+                });
+            }
+        }
+
+        @Override
+        public void partVisible(IWorkbenchPartReference partRef) {
+            IWorkbenchPart part = partRef.getPart(false);
+            if (part != null && part == AbstractTimeGraphView.this) {
+                Display.getDefault().asyncExec(() -> {
+                    if (fTimeEventFilterDialog != null && !getRegex().isEmpty()) {
+                        fTimeEventFilterDialog.open();
+                    }
+                });
+            }
+        }
+
+        @Override
+        public void partInputChanged(IWorkbenchPartReference partRef) {
+            // TODO Auto-generated method stub
+        }
+    }
+
+    private class TimeEventFilterDialog extends Dialog {
+
+        private Point fLocation;
+
+        protected TimeEventFilterDialog(Shell parentShell, Point location) {
+            super(parentShell);
+            fLocation = location;
+        }
+
+        @Override
+        protected Control createDialogArea(Composite parent) {
+            Text filterText = new Text(parent, SWT.BORDER | SWT.SEARCH | SWT.ICON_CANCEL | SWT.ICON_SEARCH);
+            GridData gridData = new GridData();
+            gridData.widthHint = FIND_X_WIDTH_HINT;
+            filterText.setLayoutData(gridData);
+            if (fRegex != null) {
+                filterText.setText(fRegex);
+            }
+            Color baseBackGround = filterText.getBackground();
+            filterText.addModifyListener(e -> {
+                filterText.setBackground(baseBackGround);
+                fRegex = filterText.getText();
+                fTimeGraphViewer.setHideEntries(false);
+                fTimeGraphViewer.setTimeEventFilterApplied(fRegex != null && !fRegex.isEmpty());
+                ZoomThread zoomThread = fZoomThread;
+                if (zoomThread != null) {
+                    // Make sure that the zoom thread is not a restart (resume of the previous)
+                    zoomThread.cancel();
+                    fZoomThread = null;
+                }
+                startZoomThread(getTimeGraphViewer().getTime0(), getTimeGraphViewer().getTime1());
+            });
+
+            filterText.addKeyListener(new KeyListener() {
+
+                @Override
+                public void keyReleased(KeyEvent e) {
+                    // Do nothing
+
+                }
+
+                @Override
+                public void keyPressed(KeyEvent e) {
+                    if ((e.keyCode ^ SWT.CR) == 0) {
+                        fRegex = filterText.getText();
+                        if (!fRegex.isEmpty()) {
+                            //highlight to differeciate from the normal filter
+                            filterText.setBackground(Display.getDefault().getSystemColor(SWT.COLOR_GRAY));
+                        }
+                        fTimeGraphViewer.setHideEntries(true);
+                        fTimeGraphViewer.setTimeEventFilterApplied(fRegex != null && !fRegex.isEmpty());
+                        ZoomThread zoomThread = fZoomThread;
+                        if (zoomThread != null) {
+                            // Make sure that the zoom thread is not a restart (resume of the previous)
+                            zoomThread.cancel();
+                            fZoomThread = null;
+                        }
+                        startZoomThread(getTimeGraphViewer().getTime0(), getTimeGraphViewer().getTime1());
+                    }
+                }
+            });
+
+            // support close on escape button
+            getShell().addListener(SWT.Traverse, e -> {
+                if (e.detail == SWT.TRAVERSE_ESCAPE) {
+                    fRegex = null;
+                    fTimeGraphViewer.setHideEntries(false);
+                    fTimeGraphViewer.setTimeEventFilterApplied(false);
+                    Display.getDefault().asyncExec(() -> refresh());
+                }
+            });
+            Control tgControl = fTimeGraphViewer.getTimeGraphControl();
+            tgControl.addPaintListener(event -> {
+                Shell shell = getShell();
+                if (shell == null || shell.isDisposed()) {
+                    return;
+                }
+                shell.setLocation(getFilterBounds(tgControl.getBounds()));
+            });
+
+            return parent;
+        }
+
+        @Override
+        protected void setShellStyle(int newShellStyle) {
+            super.setShellStyle(SWT.NO_TRIM);
+        }
+
+        @Override
+        protected void createButtonsForButtonBar(final Composite parent) {
+            GridLayout layout = (GridLayout) parent.getLayout();
+            layout.marginHeight = 0;
+        }
+
+        @Override
+        protected Point getInitialLocation(Point initialSize) {
+            return fLocation;
+        }
+
+        @Override
+        public boolean close() {
+            return super.close();
+        }
+
     }
 }

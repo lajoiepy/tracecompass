@@ -34,6 +34,8 @@ public class TimeEvent implements ITimeEvent {
 
     private final int fValue;
 
+    private boolean fNotCool;
+
     /**
      * Default value when no other value present
      */
@@ -120,6 +122,16 @@ public class TimeEvent implements ITimeEvent {
                 new TimeEvent(fEntry, Math.max(fTime, splitTime), fDuration - Math.max(0, splitTime - fTime),
                         fValue) :
                 null);
+    }
+
+    @Override
+    public void setNotCool(boolean isNotCool) {
+        fNotCool = isNotCool;
+    }
+
+    @Override
+    public boolean isNotCool() {
+        return fNotCool;
     }
 
     @Override

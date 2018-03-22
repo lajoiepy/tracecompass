@@ -227,4 +227,27 @@ public interface ITimeGraphPresentationProvider {
         // do nothing
     }
 
+    /**
+     * Test if a time event filter is applied, basically it tells if the view is in
+     * filter mode
+     *
+     * @return True if the view is in filter mode, false otherwise
+     * @since 3.4
+     *
+     */
+    default boolean isFilterApplied() {
+        return false;
+    }
+
+    /**
+     * Tells whether the hide option of the filtering mode is active. When this
+     * option is active, unmatched time events should be hidden.
+     *
+     * @return True if the hide option of the filtering mode is activated. If so,
+     *         the unmatched time events would not be drawn at all.
+     * @since 3.4
+     */
+    default boolean isHideNotCool() {
+        return false;
+    }
 }

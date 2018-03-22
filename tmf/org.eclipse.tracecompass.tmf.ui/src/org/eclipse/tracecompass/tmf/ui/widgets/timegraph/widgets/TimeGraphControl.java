@@ -23,6 +23,7 @@ package org.eclipse.tracecompass.tmf.ui.widgets.timegraph.widgets;
 import java.util.AbstractMap.SimpleEntry;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -34,6 +35,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Queue;
 import java.util.Set;
+import java.util.function.Predicate;
 
 import org.eclipse.jdt.annotation.NonNull;
 import org.eclipse.jdt.annotation.Nullable;
@@ -77,7 +79,7 @@ import org.eclipse.swt.graphics.FontData;
 import org.eclipse.swt.graphics.GC;
 import org.eclipse.swt.graphics.Image;
 import org.eclipse.swt.graphics.Point;
-import org.eclipse.swt.graphics.RGB;
+import org.eclipse.swt.graphics.RGBA;
 import org.eclipse.swt.graphics.Rectangle;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Display;
@@ -90,6 +92,7 @@ import org.eclipse.tracecompass.common.core.log.TraceCompassLog;
 import org.eclipse.tracecompass.common.core.math.SaturatedArithmetic;
 import org.eclipse.tracecompass.internal.tmf.ui.util.LineClipper;
 import org.eclipse.tracecompass.tmf.core.signal.TmfSignalManager;
+import org.eclipse.tracecompass.tmf.ui.colors.RGBAUtil;
 import org.eclipse.tracecompass.tmf.ui.signal.TmfTimeViewAlignmentInfo;
 import org.eclipse.tracecompass.tmf.ui.signal.TmfTimeViewAlignmentSignal;
 import org.eclipse.tracecompass.tmf.ui.views.FormatTimeUtils;
@@ -110,6 +113,8 @@ import org.eclipse.tracecompass.tmf.ui.widgets.timegraph.model.IMarkerEvent;
 import org.eclipse.tracecompass.tmf.ui.widgets.timegraph.model.ITimeEvent;
 import org.eclipse.tracecompass.tmf.ui.widgets.timegraph.model.ITimeEventStyleStrings;
 import org.eclipse.tracecompass.tmf.ui.widgets.timegraph.model.ITimeGraphEntry;
+import org.eclipse.tracecompass.tmf.ui.widgets.timegraph.model.TimeEvent;
+import org.eclipse.tracecompass.tmf.ui.widgets.timegraph.model.TimeGraphEntry;
 
 import com.google.common.collect.Iterables;
 
@@ -1886,6 +1891,9 @@ public class TimeGraphControl extends TimeGraphBaseControl
         // draw the background markers
         drawMarkers(bounds, fTimeProvider, fMarkers, false, nameSpace, gc);
 
+        //Draw the time event filter background is needed
+        drawHighlightBackground(bounds, nameSpace, gc);
+
         // draw the items
         drawItems(bounds, fTimeProvider, fItemData.fExpandedItems, fTopIndex, nameSpace, gc);
 
@@ -1967,6 +1975,17 @@ public class TimeGraphControl extends TimeGraphBaseControl
         }
 
         gc.setAlpha(alpha);
+    }
+
+    private void drawHighlightBackground(Rectangle bounds, int nameSpace, GC gc) {
+        if (fTimeGraphProvider.isFilterApplied()) {
+            Rectangle rect = new Rectangle(bounds.x + nameSpace, bounds.y, bounds.width - nameSpace, bounds.height);
+            Color color = getColorScheme().getColor(new RGBA(255, 255, 255, 150));
+            gc.setBackground(color);
+            gc.setAlpha(color.getAlpha());
+            gc.fillRectangle(rect);
+            gc.setAlpha(255);
+        }
     }
 
     /**
@@ -2323,7 +2342,11 @@ public class TimeGraphControl extends TimeGraphBaseControl
         }
         boolean visible = ((rect.height == 0) && (rect.width == 0)) ? false : true;
 
+        Map<String, Object> styleMap = fTimeGraphProvider.getEventStyle(event);
+        int alpha = ((int) styleMap.getOrDefault(ITimeEventStyleStrings.fillColor(), 0xff)) & 0xff;
         if (visible) {
+            int prevAlpha = gc.getAlpha();
+            gc.setAlpha(alpha);
             Color stateColor = null;
             if (colorIdx < fEventColorMap.length) {
                 stateColor = fEventColorMap[colorIdx];
@@ -2334,7 +2357,6 @@ public class TimeGraphControl extends TimeGraphBaseControl
             gc.setForeground(stateColor);
             gc.setBackground(stateColor);
             int old = gc.getLineWidth();
-            Map<String, Object> styleMap = fTimeGraphProvider.getEventStyle(event);
             float heightFactor = (float) styleMap.getOrDefault(ITimeEventStyleStrings.heightFactor(), 0.1f);
             if (heightFactor > 1.0 || heightFactor < 0) {
                 heightFactor = 0.1f;
@@ -2345,9 +2367,12 @@ public class TimeGraphControl extends TimeGraphBaseControl
             Point newEndpoint = drawArrowHead(rect.x, rect.y, rect.x + rect.width, rect.y + rect.height, heightFactor, gc);
             gc.drawLine(rect.x, rect.y, newEndpoint.x, newEndpoint.y);
             gc.setLineWidth(old);
+            gc.setAlpha(prevAlpha);
 
         }
-        fTimeGraphProvider.postDrawEvent(event, rect, gc);
+        if (visible && !(boolean) styleMap.getOrDefault(ITimeEventStyleStrings.annotated(), false)) {
+            fTimeGraphProvider.postDrawEvent(event, rect, gc);
+        }
         return visible;
     }
 
@@ -2508,6 +2533,11 @@ public class TimeGraphControl extends TimeGraphBaseControl
     protected boolean drawState(TimeGraphColorScheme colors, ITimeEvent event,
             Rectangle rect, GC gc, boolean selected, boolean timeSelected) {
 
+        // Don't draw invalid states
+        if (fTimeGraphProvider.isFilterApplied() && event instanceof TimeEvent && ((TimeEvent) event).hasValue() && ((TimeEvent) event).getValue() == -1) {
+            return false;
+        }
+
         int colorIdx = fTimeGraphProvider.getStateTableIndex(event);
         if (colorIdx < 0 && colorIdx != ITimeGraphPresentationProvider.TRANSPARENT) {
             return false;
@@ -2544,12 +2574,13 @@ public class TimeGraphControl extends TimeGraphBaseControl
             return false;
         }
         Color stateColor = null;
-        Integer fillColor = (Integer) styleMap.get(ITimeEventStyleStrings.fillColor());
-        if (fillColor != null) {
+        int fillColor = (int) styleMap.getOrDefault(ITimeEventStyleStrings.fillColor(),0);
+        boolean annotated =  (boolean) styleMap.getOrDefault(ITimeEventStyleStrings.annotated(), false);
+        if (!annotated) {
             String hexRGB = Integer.toHexString(fillColor);
             stateColor = COLOR_REGISTRY.get(hexRGB);
             if (stateColor == null) {
-                COLOR_REGISTRY.put(hexRGB, new RGB((fillColor >> 24) & 0xff, (fillColor >> 16) & 0xff, (fillColor >> 8) & 0xff));
+                COLOR_REGISTRY.put(hexRGB, RGBAUtil.fromInt(fillColor).rgb);
                 stateColor = COLOR_REGISTRY.get(hexRGB);
             }
 
@@ -2568,6 +2599,9 @@ public class TimeGraphControl extends TimeGraphBaseControl
         if (visible) {
             int prevAlpha = gc.getAlpha();
             int alpha = fillColor & 0xff;
+            if (annotated) {
+                alpha /= 4;
+            }
             gc.setAlpha(alpha);
             gc.fillRectangle(drawRect);
             gc.setAlpha(prevAlpha);
@@ -2584,7 +2618,9 @@ public class TimeGraphControl extends TimeGraphBaseControl
         if (!visible) {
             gc.drawPoint(drawRect.x, drawRect.y - 2);
         }
-        fTimeGraphProvider.postDrawEvent(event, drawRect, gc);
+        if (visible && !(boolean)styleMap.getOrDefault(ITimeEventStyleStrings.annotated(), false)) {
+            fTimeGraphProvider.postDrawEvent(event, drawRect, gc);
+        }
         return visible;
     }
 
@@ -3604,17 +3640,44 @@ public class TimeGraphControl extends TimeGraphBaseControl
             for (Item item : fItems) {
                 item.fExpandedIndex = -1;
             }
-            List<Item> expandedItemList = new ArrayList<>();
+            Collection<Item> expandedItemList = new ArrayList<>();
             for (int i = 0; i < fRootEntries.length; i++) {
                 ITimeGraphEntry entry = fRootEntries[i];
                 Item item = findItem(entry);
                 refreshExpanded(expandedItemList, item);
             }
+
+            if (fTimeGraphProvider.isHideNotCool()) {
+                filterData(expandedItemList);
+            }
+
             fExpandedItems = expandedItemList.toArray(new Item[0]);
             fTopIndex = Math.min(fTopIndex, Math.max(0, fExpandedItems.length - 1));
         }
 
-        private void refreshExpanded(List<Item> expandedItemList, Item item) {
+        private void filterData(Collection<Item> expandedItemList) {
+            Predicate<Item> predicate = (item1) -> {
+                ITimeGraphEntry entry = item1.fEntry;
+
+                return (!entry.hasTimeEvents() || (entry instanceof TimeGraphEntry && ((TimeGraphEntry) entry).hasZoomedEvents()));
+            };
+            Collection<Item> filtered = new ArrayList<>();
+            expandedItemList.forEach(item2 -> {
+                if (predicate.test(item2)) {
+                    filtered.add(item2);
+                }
+            });
+            expandedItemList.clear();
+            for (Item item : fItems) {
+                item.fExpandedIndex = -1;
+            }
+            for (Item item : filtered) {
+                item.fExpandedIndex = expandedItemList.size();
+                expandedItemList.add(item);
+            }
+        }
+
+        private void refreshExpanded(Collection<Item> expandedItemList, Item item) {
             // Check for filters
             boolean display = true;
             for (ViewerFilter filter : fFilters) {

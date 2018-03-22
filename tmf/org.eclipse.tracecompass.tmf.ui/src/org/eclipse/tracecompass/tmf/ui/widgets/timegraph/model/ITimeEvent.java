@@ -68,4 +68,26 @@ public interface ITimeEvent {
      * @return The part after the split time
      */
     ITimeEvent splitAfter(long splitTime);
+
+    /**
+     * Tells whether the time event does not match the time event filter.
+     *
+     * @return True if the time event does not match the time event filter, false
+     *         otherwise
+     *
+     * @since 3.4
+     */
+    default boolean isNotCool() {
+        return false;
+    }
+
+    /**
+     * Set whether the time event does not match the time event filter.
+     *
+     * @param isNotCool
+     *            The matched status of the time event
+     * @since 3.4
+     */
+    default void setNotCool(boolean isNotCool) {
+    }
 }
