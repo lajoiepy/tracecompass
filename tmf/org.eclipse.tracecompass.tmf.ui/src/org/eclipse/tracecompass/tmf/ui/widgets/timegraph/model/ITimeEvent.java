@@ -13,6 +13,11 @@
 
 package org.eclipse.tracecompass.tmf.ui.widgets.timegraph.model;
 
+import java.util.HashMap;
+import java.util.Map;
+
+import org.eclipse.tracecompass.internal.provisional.tmf.core.model.timegraph.IItem;
+
 /**
  * Interface for time events, for use in the timegraph view
  *
@@ -20,7 +25,7 @@ package org.eclipse.tracecompass.tmf.ui.widgets.timegraph.model;
  * @author Alvaro Sanchez-Leon
  * @author Patrick Tasse
  */
-public interface ITimeEvent {
+public interface ITimeEvent extends IItem {
 
     /**
      * Get the entry matching this time event.
@@ -74,9 +79,10 @@ public interface ITimeEvent {
      *
      * @return True if the time event does not match the time event filter, false
      *         otherwise
-     *
      * @since 3.4
+     *
      */
+    @Override
     default boolean isNotCool() {
         return false;
     }
@@ -88,6 +94,20 @@ public interface ITimeEvent {
      *            The matched status of the time event
      * @since 3.4
      */
+    @Override
     default void setNotCool(boolean isNotCool) {
+    }
+
+    /**
+     * @since 3.4
+     */
+    @Override
+    default Map<String, String> fetchSpecificData() {
+        Map<String, String> data = new HashMap<>();
+        String entryName = getEntry().getName();
+        if (entryName != null) {
+            data.put("entry", entryName); //$NON-NLS-1$
+        }
+        return data;
     }
 }

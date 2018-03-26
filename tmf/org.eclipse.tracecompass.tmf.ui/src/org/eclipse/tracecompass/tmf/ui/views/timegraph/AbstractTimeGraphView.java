@@ -104,6 +104,8 @@ import org.eclipse.tracecompass.common.core.log.TraceCompassLog;
 import org.eclipse.tracecompass.common.core.log.TraceCompassLogUtils;
 import org.eclipse.tracecompass.common.core.log.TraceCompassLogUtils.FlowScopeLog;
 import org.eclipse.tracecompass.common.core.log.TraceCompassLogUtils.FlowScopeLogBuilder;
+import org.eclipse.tracecompass.internal.provisional.tmf.core.model.filter.parser.FilterCu;
+import org.eclipse.tracecompass.internal.provisional.tmf.core.model.timegraph.IItem;
 import org.eclipse.tracecompass.internal.tmf.core.markers.MarkerConfigXmlParser;
 import org.eclipse.tracecompass.internal.tmf.core.markers.MarkerSet;
 import org.eclipse.tracecompass.internal.tmf.ui.Activator;
@@ -636,27 +638,21 @@ public abstract class AbstractTimeGraphView extends TmfView implements ITmfTimeA
             long zoomStartTime, long zoomEndTime, long resolution, @NonNull IProgressMonitor monitor) {
 
         String regex = getRegex();
-        BiPredicate<ITimeEvent, Function<ITimeEvent, Map<String, String>>> predicate = (event, function) -> {
-            Map<String, String> toTest = function.apply(event);
-            if (toTest == null) {
-                toTest = new HashMap<>();
-            }
-            String entryName = event.getEntry().getName();
-            if (entryName != null) {
-                toTest.put("entry", entryName); //$NON-NLS-1$
-            }
-            return Iterables.any(toTest.entrySet(), entry -> entry.getValue().toLowerCase().contains(regex.toLowerCase()));
-        };
-
+        BiPredicate<IItem, Function<IItem, Map<String, String>>> tmpPredicate = null;
+        if (!regex.isEmpty()) {
+            FilterCu cu = FilterCu.compile(regex);
+            tmpPredicate = cu != null ? cu.generate() : tmpPredicate;
+        }
+        BiPredicate<IItem, Function<IItem, Map<String, String>>> predicate = tmpPredicate;
         for (TimeGraphEntry entry : entries) {
             List<ITimeEvent> zoomedEventList = getEventList(entry, zoomStartTime, zoomEndTime, resolution, monitor);
             if (monitor.isCanceled()) {
                 return;
             }
             if (zoomedEventList != null) {
-                if (!regex.isEmpty()) {
+                if (predicate != null) {
                     zoomedEventList.forEach(te -> {
-                        te.setNotCool(!predicate.test(te, event -> getPresentationProvider().getEventHoverToolTipInfo(event, event.getTime())));
+                        te.setNotCool(!predicate.test(te, event -> getPresentationProvider().getEventHoverToolTipInfo(((ITimeEvent) event), ((ITimeEvent) event).getTime())));
                     });
                 }
                 Collection<ITimeEvent> filtered = new ArrayList<>();
