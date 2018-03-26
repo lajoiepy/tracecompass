@@ -9,6 +9,9 @@
 
 package org.eclipse.tracecompass.internal.provisional.tmf.core.model.timegraph;
 
+import java.util.HashMap;
+import java.util.Map;
+
 import org.eclipse.jdt.annotation.Nullable;
 
 /**
@@ -76,5 +79,15 @@ public class TimeGraphState implements ITimeGraphState {
     @Override
     public @Nullable String getLabel() {
         return fLabel;
+    }
+
+    @Override
+    public Map<String, String> fetchSpecificData() {
+      Map<String, String> toTest = new HashMap<>();
+      String label = getLabel();
+      if (label != null) {
+          toTest.put("label", label); //$NON-NLS-1$
+      }
+      return toTest;
     }
 }

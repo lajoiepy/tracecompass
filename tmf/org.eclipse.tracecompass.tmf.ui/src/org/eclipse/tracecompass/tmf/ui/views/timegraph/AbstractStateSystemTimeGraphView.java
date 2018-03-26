@@ -32,6 +32,8 @@ import org.eclipse.jdt.annotation.NonNull;
 import org.eclipse.jdt.annotation.Nullable;
 import org.eclipse.tracecompass.common.core.log.TraceCompassLog;
 import org.eclipse.tracecompass.common.core.log.TraceCompassLogUtils;
+import org.eclipse.tracecompass.internal.provisional.tmf.core.model.filter.parser.FilterCu;
+import org.eclipse.tracecompass.internal.provisional.tmf.core.model.timegraph.IItem;
 import org.eclipse.tracecompass.statesystem.core.ITmfStateSystem;
 import org.eclipse.tracecompass.statesystem.core.exceptions.StateSystemDisposedException;
 import org.eclipse.tracecompass.statesystem.core.interval.ITmfStateInterval;
@@ -44,7 +46,6 @@ import org.eclipse.tracecompass.tmf.ui.widgets.timegraph.model.ITimeEvent;
 import org.eclipse.tracecompass.tmf.ui.widgets.timegraph.model.TimeGraphEntry;
 
 import com.google.common.collect.HashMultimap;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
 
 /**
@@ -182,23 +183,17 @@ public abstract class AbstractStateSystemTimeGraphView extends AbstractTimeGraph
             List<ITimeEvent> eventList = getEventList(entry, ss, fullStates, prevFullState, monitor);
 
             String regex = getRegex();
-            BiPredicate<ITimeEvent, Function<ITimeEvent, Map<String, String>>> predicate = (event, function) -> {
-                Map<String, String> toTest = function.apply(event);
-                if (toTest == null) {
-                    toTest = new HashMap<>();
-                }
-                String entryName = event.getEntry().getName();
-                if (entryName != null) {
-                    toTest.put("entry", entryName); //$NON-NLS-1$
-                }
-                return Iterables.any(toTest.entrySet(), item -> item.getValue().toLowerCase().contains(regex.toLowerCase()));
-            };
-
+            BiPredicate<IItem, Function<IItem, Map<String, String>>> tmpPredicate = null;
+            if (!regex.isEmpty()) {
+                FilterCu cu = FilterCu.compile(regex);
+                tmpPredicate = cu != null ? cu.generate() : tmpPredicate;
+            }
+            BiPredicate<IItem, Function<IItem, Map<String, String>>> predicate = tmpPredicate;
             if (eventList != null) {
 
-                if (!regex.isEmpty()) {
+                if (predicate != null) {
                     eventList.forEach(te -> {
-                        te.setNotCool(!predicate.test(te, event -> getPresentationProvider().getEventHoverToolTipInfo(event, event.getTime())));
+                        te.setNotCool(!predicate.test(te, event -> getPresentationProvider().getEventHoverToolTipInfo((ITimeEvent)event, ((ITimeEvent) event).getTime())));
                     });
                 }
                 Collection<ITimeEvent> filtered = new ArrayList<>();

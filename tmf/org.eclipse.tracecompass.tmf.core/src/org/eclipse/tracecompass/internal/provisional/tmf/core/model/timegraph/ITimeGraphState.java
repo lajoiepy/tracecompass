@@ -16,7 +16,7 @@ import org.eclipse.jdt.annotation.Nullable;
  *
  * @author Simon Delisle
  */
-public interface ITimeGraphState {
+public interface ITimeGraphState extends IItem {
 
     /**
      * Gets the state start time
