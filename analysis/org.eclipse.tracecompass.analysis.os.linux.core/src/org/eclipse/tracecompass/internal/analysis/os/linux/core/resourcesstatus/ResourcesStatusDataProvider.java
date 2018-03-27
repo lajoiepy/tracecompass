@@ -11,6 +11,7 @@ package org.eclipse.tracecompass.internal.analysis.os.linux.core.resourcesstatus
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -18,7 +19,9 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.NavigableSet;
+import java.util.Objects;
 import java.util.Set;
+import java.util.function.BiPredicate;
 import java.util.function.Function;
 
 import org.eclipse.core.runtime.IProgressMonitor;
@@ -32,9 +35,12 @@ import org.eclipse.tracecompass.analysis.os.linux.core.trace.IKernelTrace;
 import org.eclipse.tracecompass.internal.analysis.os.linux.core.kernel.Attributes;
 import org.eclipse.tracecompass.internal.analysis.os.linux.core.resourcesstatus.ResourcesEntryModel.Type;
 import org.eclipse.tracecompass.internal.provisional.tmf.core.model.CommonStatusMessage;
+import org.eclipse.tracecompass.internal.provisional.tmf.core.model.filter.parser.FilterCu;
 import org.eclipse.tracecompass.internal.provisional.tmf.core.model.filters.SelectionTimeQueryFilter;
 import org.eclipse.tracecompass.internal.provisional.tmf.core.model.filters.TimeQueryFilter;
+import org.eclipse.tracecompass.internal.provisional.tmf.core.model.filters.TimegraphStateQueryFilter;
 import org.eclipse.tracecompass.internal.provisional.tmf.core.model.timegraph.AbstractTimeGraphDataProvider;
+import org.eclipse.tracecompass.internal.provisional.tmf.core.model.timegraph.IItem;
 import org.eclipse.tracecompass.internal.provisional.tmf.core.model.timegraph.ITimeGraphArrow;
 import org.eclipse.tracecompass.internal.provisional.tmf.core.model.timegraph.ITimeGraphRowModel;
 import org.eclipse.tracecompass.internal.provisional.tmf.core.model.timegraph.ITimeGraphState;
@@ -239,6 +245,16 @@ public class ResourcesStatusDataProvider extends AbstractTimeGraphDataProvider<@
             intervals.put(interval.getAttribute(), interval);
         }
 
+        String filterString = ""; //$NON-NLS-1$
+        boolean removeUnmatched = false;
+        if (filter instanceof TimegraphStateQueryFilter) {
+            TimegraphStateQueryFilter timeEventFilter = (TimegraphStateQueryFilter) filter;
+            filterString = timeEventFilter.getRegex();
+            removeUnmatched = timeEventFilter.removeUnmatched();
+        }
+        FilterCu cu = FilterCu.compile(filterString);
+        BiPredicate<IItem, Function<IItem, Map<String, String>>> predicate = cu != null ? cu.generate() : null;
+
         List<ITimeGraphRowModel> rows = new ArrayList<>();
 
         for (Map.Entry<Long, Integer> entry : entries.entrySet()) {
@@ -247,19 +263,24 @@ public class ResourcesStatusDataProvider extends AbstractTimeGraphDataProvider<@
             }
 
             List<ITimeGraphState> eventList = new ArrayList<>();
+            Long key = entry.getKey();
             for (ITmfStateInterval interval : intervals.get(entry.getValue())) {
                 long startTime = interval.getStartTime();
                 long duration = interval.getEndTime() - startTime + 1;
                 Object status = interval.getValue();
                 Type type = fEntryModelTypes.get(interval.getAttribute());
+
                 if (status instanceof Integer) {
                     int s = (int) status;
                     int currentThreadQuark = ss.optQuarkRelative(interval.getAttribute(), Attributes.CURRENT_THREAD);
                     if (type == Type.CPU && s == StateValues.CPU_STATUS_RUN_SYSCALL) {
-                        eventList.add(getSyscall(ss, interval, intervals.get(currentThreadQuark)));
+                        ITimeGraphState timegraphState = getSyscall(ss, interval, intervals.get(currentThreadQuark));
+                        addToEventList(eventList, timegraphState, key, predicate, removeUnmatched, startTime);
                     } else if (type == Type.CPU && s == StateValues.CPU_STATUS_RUN_USERMODE) {
                         // add events for all the sampled current threads.
-                        eventList.addAll(getCurrentThreads(ss, interval, intervals.get(currentThreadQuark)));
+                        boolean remove = removeUnmatched;
+                        List<TimeGraphState> currentThreads = getCurrentThreads(ss, interval, intervals.get(currentThreadQuark));
+                        currentThreads.forEach(timeGraphState -> addToEventList(eventList, timeGraphState, key, predicate, remove, startTime));
                     } else if (type == Type.CURRENT_THREAD && s != 0) {
                         String execName = null;
                         synchronized (fExecNamesCache) {
@@ -278,15 +299,18 @@ public class ResourcesStatusDataProvider extends AbstractTimeGraphDataProvider<@
                                 }
                             }
                         }
-                        eventList.add(new TimeGraphState(startTime, duration, s, execName != null ? execName + ' ' + '(' + String.valueOf(s) + ')' : String.valueOf(s)));
+                        TimeGraphState timeGraphState = new TimeGraphState(startTime, duration, s, execName != null ? execName + ' ' + '(' + String.valueOf(s) + ')' : String.valueOf(s));
+                        addToEventList(eventList, timeGraphState, key, predicate, removeUnmatched, startTime);
                     } else {
-                        eventList.add(new TimeGraphState(startTime, duration, s));
+                        TimeGraphState timeGraphState = new TimeGraphState(startTime, duration, s);
+                        addToEventList(eventList, timeGraphState, key, predicate, removeUnmatched, startTime);
                     }
                 } else {
-                    eventList.add(new TimeGraphState(startTime, duration, Integer.MIN_VALUE));
+                    TimeGraphState timeGraphState = new TimeGraphState(startTime, duration, Integer.MIN_VALUE);
+                    addToEventList(eventList, timeGraphState, key, predicate, removeUnmatched, startTime);
                 }
             }
-            rows.add(new TimeGraphRowModel(entry.getKey(), eventList));
+            rows.add(new TimeGraphRowModel(key, eventList));
         }
         synchronized (fExecNamesCache) {
             fExecNamesCache.clear();
@@ -294,6 +318,21 @@ public class ResourcesStatusDataProvider extends AbstractTimeGraphDataProvider<@
         return rows;
     }
 
+    private void addToEventList(List<ITimeGraphState> eventList, ITimeGraphState timeGraphState, Long key, BiPredicate<IItem, Function<IItem, Map<String, String>>> predicate, boolean removeUnmatched, long startTime) {
+        setMatchedStatus(predicate, timeGraphState, startTime, key);
+        if (!timeGraphState.isNotCool() || !removeUnmatched) {
+            eventList.add(timeGraphState);
+        }
+    }
+
+    private void setMatchedStatus(BiPredicate<IItem, Function<IItem, Map<String, String>>> predicate, ITimeGraphState timegraphState, long startTime, Long id) {
+        if (predicate != null) {
+            SelectionTimeQueryFilter filter = new SelectionTimeQueryFilter(Collections.singletonList(startTime), Collections.singleton(Objects.requireNonNull(id)));
+            TmfModelResponse<Map<String, String>> response = fetchTooltip(filter, null);
+            Map<String, String> model = response.getModel();
+            timegraphState.setNotCool(!predicate.test(timegraphState, state -> model));
+        }
+    }
     /**
      * Add the quarks for the thread status attribute, for all the CPU quarks in
      * values

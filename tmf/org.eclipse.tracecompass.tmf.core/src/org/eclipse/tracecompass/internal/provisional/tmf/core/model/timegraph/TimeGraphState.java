@@ -24,6 +24,7 @@ public class TimeGraphState implements ITimeGraphState {
     private final long fDuration;
     private final long fValue;
     private final @Nullable String fLabel;
+    private boolean fNotCool = false;
 
     /**
      * Constructor
@@ -79,6 +80,16 @@ public class TimeGraphState implements ITimeGraphState {
     @Override
     public @Nullable String getLabel() {
         return fLabel;
+    }
+
+    @Override
+    public void setNotCool(boolean isNotCool) {
+        fNotCool = isNotCool;
+    }
+
+    @Override
+    public boolean isNotCool() {
+        return fNotCool;
     }
 
     @Override

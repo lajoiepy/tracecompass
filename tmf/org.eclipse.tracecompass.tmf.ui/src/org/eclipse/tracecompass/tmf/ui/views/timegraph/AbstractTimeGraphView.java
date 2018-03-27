@@ -587,7 +587,7 @@ public abstract class AbstractTimeGraphView extends TmfView implements ITmfTimeA
                     // Fall back on the full event list
                     applyResults(() -> fEntries.forEach(entry -> entry.setZoomedEventList(null)));
                 } else {
-                    Iterable<@NonNull TimeGraphEntry> incorrectSample = Iterables.filter(fEntries, entry -> !sampling.equals(entry.getSampling()));
+                    Iterable<@NonNull TimeGraphEntry> incorrectSample = Iterables.filter(fEntries, entry -> !getRegex().isEmpty() || !sampling.equals(entry.getSampling()));
                     zoomEntries(incorrectSample, getZoomStartTime(), getZoomEndTime(), getResolution(), getMonitor());
                 }
             }

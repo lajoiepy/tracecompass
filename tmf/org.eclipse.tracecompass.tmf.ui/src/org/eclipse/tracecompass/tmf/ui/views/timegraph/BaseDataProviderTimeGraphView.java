@@ -20,8 +20,8 @@ import java.util.Map.Entry;
 import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.core.runtime.SubMonitor;
 import org.eclipse.jdt.annotation.NonNull;
-import org.eclipse.tracecompass.internal.provisional.tmf.core.model.filters.SelectionTimeQueryFilter;
 import org.eclipse.tracecompass.internal.provisional.tmf.core.model.filters.TimeQueryFilter;
+import org.eclipse.tracecompass.internal.provisional.tmf.core.model.filters.TimegraphStateQueryFilter;
 import org.eclipse.tracecompass.internal.provisional.tmf.core.model.timegraph.ITimeGraphDataProvider;
 import org.eclipse.tracecompass.internal.provisional.tmf.core.model.timegraph.ITimeGraphRowModel;
 import org.eclipse.tracecompass.internal.provisional.tmf.core.model.timegraph.ITimeGraphState;
@@ -274,7 +274,7 @@ public class BaseDataProviderTimeGraphView extends AbstractTimeGraphView {
         for (Entry<ITimeGraphDataProvider<? extends TimeGraphEntryModel>, Multimap<Long, TimeGraphEntry>> entry : groupedEntries.entrySet()) {
             ITimeGraphDataProvider<? extends TimeGraphEntryModel> dataProvider = entry.getKey();
             Multimap<Long, TimeGraphEntry> map = entry.getValue();
-            SelectionTimeQueryFilter filter = new SelectionTimeQueryFilter(times, map.keySet());
+            TimegraphStateQueryFilter filter = new TimegraphStateQueryFilter(times, map.keySet(), getRegex(), getPresentationProvider().isHideNotCool());
             TmfModelResponse<List<ITimeGraphRowModel>> response = dataProvider.fetchRowModel(filter, monitor);
 
             List<ITimeGraphRowModel> model = response.getModel();
@@ -377,13 +377,13 @@ public class BaseDataProviderTimeGraphView extends AbstractTimeGraphView {
      */
     protected TimeEvent createTimeEvent(TimeGraphEntry entry, ITimeGraphState state) {
         if (state.getValue() == Integer.MIN_VALUE) {
-            return new NullTimeEvent(entry, state.getStartTime(), state.getDuration());
+            return new NullTimeEvent(entry, state.getStartTime(), state.getDuration(), state.isNotCool());
         }
         String label = state.getLabel();
         if (label != null) {
-            return new NamedTimeEvent(entry, state.getStartTime(), state.getDuration(), (int) state.getValue(), label);
+            return new NamedTimeEvent(entry, state.getStartTime(), state.getDuration(), (int) state.getValue(), label, state.isNotCool());
         }
-        return new TimeEvent(entry, state.getStartTime(), state.getDuration(), (int) state.getValue());
+        return new TimeEvent(entry, state.getStartTime(), state.getDuration(), (int) state.getValue(), state.isNotCool());
     }
 
 }
