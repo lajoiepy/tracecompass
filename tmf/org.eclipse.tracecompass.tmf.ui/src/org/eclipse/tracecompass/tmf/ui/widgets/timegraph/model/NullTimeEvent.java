@@ -32,6 +32,23 @@ public class NullTimeEvent extends TimeEvent {
         super(entry, time, duration);
     }
 
+    /**
+     * Standard constructor
+     *
+     * @param entry
+     *            The entry matching this event
+     * @param time
+     *            The timestamp of this event
+     * @param duration
+     *            The duration of the event
+     * @param notCool
+     *            The annotated status of the event
+     * @since 3.4
+     */
+    public NullTimeEvent(TimeGraphEntry entry, long time, long duration, boolean notCool) {
+        super(entry, time, duration, notCool);
+    }
+
     @Override
     public ITimeEvent splitBefore(long splitTime) {
         return (splitTime > fTime ?

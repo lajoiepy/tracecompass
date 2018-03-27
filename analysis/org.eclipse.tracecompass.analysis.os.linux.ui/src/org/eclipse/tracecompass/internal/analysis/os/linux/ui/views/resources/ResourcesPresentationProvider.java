@@ -10,6 +10,7 @@
 package org.eclipse.tracecompass.internal.analysis.os.linux.ui.views.resources;
 
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -259,17 +260,18 @@ public class ResourcesPresentationProvider extends TimeGraphPresentationProvider
 
     @Override
     public Map<String, Object> getSpecificEventStyle(ITimeEvent event) {
+        Map<String, Object> map = new HashMap<>(super.getSpecificEventStyle(event));
         if (isType(event.getEntry(), Type.CURRENT_THREAD) && event instanceof TimeEvent) {
             int threadEventValue = ((TimeEvent) event).getValue();
             if (threadEventValue == IDLE_THREAD) {
                 return ImmutableMap.of(ITimeEventStyleStrings.fillColor(), 0);
             }
             RGBAColor color = PALETTE.get(Math.floorMod(threadEventValue + COLOR_DIFFERENCIATION_FACTOR, NUM_COLORS));
-            return ImmutableMap.of(ITimeEventStyleStrings.fillColor(), color.toInt(),
-                    ITimeEventStyleStrings.label(), String.valueOf(threadEventValue));
+            map.put(ITimeEventStyleStrings.fillColor(), color.toInt());
+            map.put(ITimeEventStyleStrings.label(), String.valueOf(threadEventValue));
 
         }
-        return super.getSpecificEventStyle(event);
+        return map;
     }
 
     @Override

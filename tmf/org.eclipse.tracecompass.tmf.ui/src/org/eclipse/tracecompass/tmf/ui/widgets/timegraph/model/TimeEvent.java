@@ -34,7 +34,7 @@ public class TimeEvent implements ITimeEvent {
 
     private final int fValue;
 
-    private boolean fNotCool;
+    private boolean fNotCool = false;
 
     /**
      * Default value when no other value present
@@ -53,6 +53,23 @@ public class TimeEvent implements ITimeEvent {
      */
     public TimeEvent(ITimeGraphEntry entry, long time, long duration) {
         this(entry, time, duration, NOVALUE);
+    }
+
+    /**
+     * Standard constructor
+     *
+     * @param entry
+     *            The entry matching this event
+     * @param time
+     *            The timestamp of this event
+     * @param duration
+     *            The duration of the event
+     * @param notCool
+     *            The annotated status of this event
+     * @since 3.4
+     */
+    public TimeEvent(ITimeGraphEntry entry, long time, long duration, boolean notCool) {
+        this(entry, time, duration, NOVALUE, notCool);
 
     }
 
@@ -74,6 +91,29 @@ public class TimeEvent implements ITimeEvent {
         fTime = time;
         fDuration = duration;
         fValue = value;
+    }
+
+    /**
+     * Constructor
+     *
+     * @param entry
+     *            The entry to which this time event is assigned
+     * @param time
+     *            The timestamp of this event
+     * @param duration
+     *            The duration of this event
+     * @param value
+     *            The status assigned to the event
+     * @param notCool
+     *            The annotated status of the event
+     * @since 3.4
+     */
+    public TimeEvent(ITimeGraphEntry entry, long time, long duration, int value, boolean notCool) {
+        fEntry = entry;
+        fTime = time;
+        fDuration = duration;
+        fValue = value;
+        fNotCool = notCool;
     }
 
     /**
