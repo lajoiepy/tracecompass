@@ -23,6 +23,7 @@ import java.util.NavigableSet;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.BiPredicate;
 import java.util.function.Function;
 
 import org.eclipse.core.runtime.IProgressMonitor;
@@ -36,8 +37,11 @@ import org.eclipse.tracecompass.internal.analysis.os.linux.core.kernel.Attribute
 import org.eclipse.tracecompass.internal.analysis.os.linux.core.kernel.StateValues;
 import org.eclipse.tracecompass.internal.provisional.tmf.core.model.AbstractTmfTraceDataProvider;
 import org.eclipse.tracecompass.internal.provisional.tmf.core.model.CommonStatusMessage;
+import org.eclipse.tracecompass.internal.provisional.tmf.core.model.filter.parser.FilterCu;
 import org.eclipse.tracecompass.internal.provisional.tmf.core.model.filters.SelectionTimeQueryFilter;
 import org.eclipse.tracecompass.internal.provisional.tmf.core.model.filters.TimeQueryFilter;
+import org.eclipse.tracecompass.internal.provisional.tmf.core.model.filters.TimegraphStateQueryFilter;
+import org.eclipse.tracecompass.internal.provisional.tmf.core.model.timegraph.IItem;
 import org.eclipse.tracecompass.internal.provisional.tmf.core.model.timegraph.ITimeGraphArrow;
 import org.eclipse.tracecompass.internal.provisional.tmf.core.model.timegraph.ITimeGraphDataProvider;
 import org.eclipse.tracecompass.internal.provisional.tmf.core.model.timegraph.ITimeGraphRowModel;
@@ -377,6 +381,16 @@ public class ThreadStatusDataProvider extends AbstractTmfTraceDataProvider imple
             return new TmfModelResponse<>(null, ITmfResponse.Status.FAILED, String.valueOf(e.getMessage()));
         }
 
+        String filterString = ""; //$NON-NLS-1$
+        boolean removeUnmatched = false;
+        if (filter instanceof TimegraphStateQueryFilter) {
+            TimegraphStateQueryFilter timeEventFilter = (TimegraphStateQueryFilter) filter;
+            filterString = timeEventFilter.getRegex();
+            removeUnmatched = timeEventFilter.removeUnmatched();
+        }
+        FilterCu cu = FilterCu.compile(filterString);
+        BiPredicate<IItem, Function<IItem, Map<String, String>>> predicate = cu != null ? cu.generate() : null;
+
         List<ITimeGraphRowModel> rows = new ArrayList<>();
         for (Entry<Long, Integer> entry : selectedIdsToQuarks.entrySet()) {
             int quark = entry.getValue();
@@ -387,7 +401,14 @@ public class ThreadStatusDataProvider extends AbstractTmfTraceDataProvider imple
                 return new TmfModelResponse<>(null, ITmfResponse.Status.CANCELLED, CommonStatusMessage.TASK_CANCELLED);
             }
 
-            List<ITimeGraphState> eventList = Lists.newArrayList(Iterables.transform(states, i -> createTimeGraphState(i, syscalls)));
+            List<ITimeGraphState> eventList = new ArrayList<>();
+            boolean remove = removeUnmatched;
+            states.forEach(i -> {
+                ITimeGraphState timeGraphState = createTimeGraphState(i, syscalls, predicate, entry.getKey());
+                if (!timeGraphState.isNotCool() || !remove) {
+                    eventList.add(timeGraphState);
+                }
+            });
             rows.add(new TimeGraphRowModel(entry.getKey(), eventList));
         }
         return new TmfModelResponse<>(rows, ITmfResponse.Status.COMPLETED, CommonStatusMessage.COMPLETED);
@@ -437,10 +458,11 @@ public class ThreadStatusDataProvider extends AbstractTmfTraceDataProvider imple
         return times;
     }
 
-    private ITimeGraphState createTimeGraphState(ITmfStateInterval interval, NavigableSet<ITmfStateInterval> syscalls) {
+    private ITimeGraphState createTimeGraphState(ITmfStateInterval interval, NavigableSet<ITmfStateInterval> syscalls, BiPredicate<IItem, Function<IItem, Map<String, String>>> predicate, Long id) {
         long startTime = interval.getStartTime();
         long duration = interval.getEndTime() - startTime + 1;
         Object status = interval.getValue();
+        TimeGraphState toReturn = null;
         if (status instanceof Integer) {
             int s = (int) status;
             if (s == StateValues.PROCESS_STATUS_RUN_SYSCALL) {
@@ -450,13 +472,22 @@ public class ThreadStatusDataProvider extends AbstractTmfTraceDataProvider imple
                 if (syscall != null) {
                     Object value = syscall.getValue();
                     if (value instanceof String) {
-                        return new TimeGraphState(startTime, duration, s, fSyscallTrim.apply((String) value));
+                        toReturn = new TimeGraphState(startTime, duration, s, fSyscallTrim.apply((String) value));
                     }
                 }
             }
-            return new TimeGraphState(startTime, duration, s);
+            toReturn = toReturn == null ? new TimeGraphState(startTime, duration, s) : toReturn;
         }
-        return new TimeGraphState(startTime, duration, Integer.MIN_VALUE);
+        toReturn = toReturn == null ? new TimeGraphState(startTime, duration, Integer.MIN_VALUE) : toReturn;
+        if (predicate != null) {
+            SelectionTimeQueryFilter filter = new SelectionTimeQueryFilter(startTime, startTime, 1, Collections.singletonList(id));
+            TmfModelResponse<Map<String, String>> response = fetchTooltip(filter, null);
+            Map<String, String> model = response.getModel();
+            boolean test = predicate.test(toReturn, state -> model);
+            toReturn.setNotCool(!test);
+        }
+
+        return toReturn;
     }
 
     @Override
