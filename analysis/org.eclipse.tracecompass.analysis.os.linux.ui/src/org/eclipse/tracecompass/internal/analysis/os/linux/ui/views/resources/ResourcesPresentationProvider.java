@@ -261,13 +261,16 @@ public class ResourcesPresentationProvider extends TimeGraphPresentationProvider
     @Override
     public Map<String, Object> getSpecificEventStyle(ITimeEvent event) {
         Map<String, Object> map = new HashMap<>(super.getSpecificEventStyle(event));
+        Integer oldColor = (Integer) map.getOrDefault(ITimeEventStyleStrings.fillColor(), 255);
+        int alpha = oldColor & 0xff;
         if (isType(event.getEntry(), Type.CURRENT_THREAD) && event instanceof TimeEvent) {
             int threadEventValue = ((TimeEvent) event).getValue();
             if (threadEventValue == IDLE_THREAD) {
-                return ImmutableMap.of(ITimeEventStyleStrings.fillColor(), 0);
+                map.put(ITimeEventStyleStrings.fillColor(), 0);
+                return map;
             }
             RGBAColor color = PALETTE.get(Math.floorMod(threadEventValue + COLOR_DIFFERENCIATION_FACTOR, NUM_COLORS));
-            map.put(ITimeEventStyleStrings.fillColor(), color.toInt());
+            map.put(ITimeEventStyleStrings.fillColor(), (color.toInt() & 0xffffff00) | alpha);
             map.put(ITimeEventStyleStrings.label(), String.valueOf(threadEventValue));
 
         }

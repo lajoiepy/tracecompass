@@ -2556,8 +2556,9 @@ public class TimeGraphControl extends TimeGraphBaseControl
     protected boolean drawState(TimeGraphColorScheme colors, ITimeEvent event,
             Rectangle rect, GC gc, boolean selected, boolean timeSelected) {
 
-        // Don't draw invalid states
-        if (fTimeGraphProvider.isFilterApplied() && event instanceof TimeEvent && ((TimeEvent) event).hasValue() && ((TimeEvent) event).getValue() == -1) {
+        // Don't draw invalid/empty states if filter is applied
+        if (fTimeGraphProvider.isFilterApplied() && event instanceof TimeEvent
+                && (!((TimeEvent) event).hasValue() || ((TimeEvent) event).getValue() == -1)) {
             return false;
         }
 
@@ -2597,9 +2598,8 @@ public class TimeGraphControl extends TimeGraphBaseControl
             return false;
         }
         Color stateColor = null;
-        int fillColor = (int) styleMap.getOrDefault(ITimeEventStyleStrings.fillColor(),0);
-        boolean annotated =  (boolean) styleMap.getOrDefault(ITimeEventStyleStrings.annotated(), false);
-        if (!annotated) {
+        int fillColor = (int) styleMap.getOrDefault(ITimeEventStyleStrings.fillColor(), 255);
+        if (fillColor >> 8 != 0) {
             String hexRGB = Integer.toHexString(fillColor);
             stateColor = COLOR_REGISTRY.get(hexRGB);
             if (stateColor == null) {
@@ -2608,7 +2608,6 @@ public class TimeGraphControl extends TimeGraphBaseControl
             }
 
         } else {
-            fillColor = 0xff;
             if (colorIdx < fEventColorMap.length) {
                 stateColor = fEventColorMap[colorIdx];
             } else {
@@ -2622,9 +2621,6 @@ public class TimeGraphControl extends TimeGraphBaseControl
         if (visible) {
             int prevAlpha = gc.getAlpha();
             int alpha = fillColor & 0xff;
-            if (annotated) {
-                alpha /= 4;
-            }
             gc.setAlpha(alpha);
             gc.fillRectangle(drawRect);
             gc.setAlpha(prevAlpha);
