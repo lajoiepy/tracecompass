@@ -50,7 +50,7 @@ public interface IMatchProcessingUnit {
      *            The key that matched the events to get this match
      * @param match
      *            The event match
-     * @since 3.3
+     * @since 3.4
      */
     default void addMatch(IEventMatchingKey eventKey, TmfEventDependency match) {
         addMatch(match);

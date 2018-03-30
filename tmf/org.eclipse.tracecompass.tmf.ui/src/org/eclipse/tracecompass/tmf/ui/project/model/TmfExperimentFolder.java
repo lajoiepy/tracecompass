@@ -215,7 +215,7 @@ public class TmfExperimentFolder extends TmfProjectModelElement implements IProp
      *            the experiment resource
      * @return the experiment element, or null if this experiment folder is not the
      *         parent of the specified resource
-     * @since 3.3
+     * @since 3.4
      */
     public synchronized TmfExperimentElement addExperiment(@NonNull IFolder resource) {
         if (!resource.getParent().equals(getResource())) {

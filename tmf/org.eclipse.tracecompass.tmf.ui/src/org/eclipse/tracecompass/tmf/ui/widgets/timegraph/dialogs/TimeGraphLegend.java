@@ -96,7 +96,7 @@ public class TimeGraphLegend extends TitleAreaDialog {
      * Gets the Presentation Provider
      *
      * @return the presentation provider
-     * @since 3.3
+     * @since 3.4
      */
     protected final ITimeGraphPresentationProvider getPresentationProvider() {
         return fProvider;
@@ -132,7 +132,7 @@ public class TimeGraphLegend extends TitleAreaDialog {
      *
      * @param composite
      *            the parent composite
-     * @since 3.3
+     * @since 3.4
      */
     protected void createStatesGroup(Composite composite) {
         ScrolledComposite sc = new ScrolledComposite(composite, SWT.V_SCROLL | SWT.H_SCROLL);
@@ -185,7 +185,7 @@ public class TimeGraphLegend extends TitleAreaDialog {
      * button
      *
      * @author Matthew Khouzam
-     * @since 3.3
+     * @since 3.4
      */
     protected class LegendEntry extends Composite {
         private final Swatch fBar;

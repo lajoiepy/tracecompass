@@ -24,7 +24,7 @@ import com.google.common.annotations.VisibleForTesting;
  * <p>
  * This allows native directory dialogs to be stubbed out for SWTBot tests.
  *
- * @since 3.3
+ * @since 3.4
  */
 public final class DirectoryDialogFactory {
 

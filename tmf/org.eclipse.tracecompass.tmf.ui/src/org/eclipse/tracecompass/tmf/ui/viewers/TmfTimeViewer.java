@@ -168,7 +168,7 @@ public abstract class TmfTimeViewer extends TmfViewer implements ITmfTimeProvide
      * Gets the trace that is displayed by this viewer.
      *
      * @return the trace
-     * @since 3.3
+     * @since 3.4
      */
     @Override
     public ITmfTrace getTrace() {

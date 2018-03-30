@@ -70,6 +70,7 @@ import org.eclipse.jface.dialogs.Dialog;
 import org.eclipse.jface.viewers.AbstractTreeViewer;
 import org.eclipse.jface.viewers.ILabelProvider;
 import org.eclipse.jface.viewers.ILabelProviderListener;
+import org.eclipse.jface.viewers.IStructuredSelection;
 import org.eclipse.jface.viewers.ITableLabelProvider;
 import org.eclipse.jface.viewers.ITreeContentProvider;
 import org.eclipse.jface.viewers.ViewerFilter;
@@ -153,6 +154,7 @@ import org.eclipse.tracecompass.tmf.ui.widgets.timegraph.model.IMarkerEventSourc
 import org.eclipse.tracecompass.tmf.ui.widgets.timegraph.model.ITimeEvent;
 import org.eclipse.tracecompass.tmf.ui.widgets.timegraph.model.ITimeGraphEntry;
 import org.eclipse.tracecompass.tmf.ui.widgets.timegraph.model.MarkerEvent;
+import org.eclipse.tracecompass.tmf.ui.widgets.timegraph.model.NamedTimeEvent;
 import org.eclipse.tracecompass.tmf.ui.widgets.timegraph.model.TimeGraphEntry;
 import org.eclipse.tracecompass.tmf.ui.widgets.timegraph.model.TimeGraphEntry.Sampling;
 import org.eclipse.tracecompass.tmf.ui.widgets.timegraph.widgets.TimeGraphControl;
@@ -1056,7 +1058,7 @@ public abstract class AbstractTimeGraphView extends TmfView implements ITmfTimeA
      *
      * @param legendProvider
      *            the legend provider
-     * @since 3.3
+     * @since 3.4
      */
     public void setLegendProvider(ITimeGraphLegendProvider legendProvider) {
         fLegendProvider = legendProvider;
@@ -1791,7 +1793,7 @@ public abstract class AbstractTimeGraphView extends TmfView implements ITmfTimeA
      * Gets the trace to viewer filters map.
      *
      * @return The trace to viewer filters map
-     * @since 3.3
+     * @since 3.4
      */
     protected @NonNull Map<ITmfTrace, ViewerFilter[]> getFiltersMap() {
         return checkNotNull(fFiltersMap);
@@ -2396,7 +2398,7 @@ public abstract class AbstractTimeGraphView extends TmfView implements ITmfTimeA
                  * TimeEventMenuListener. If the event is triggered on the name space then show
                  * the menu else clear the menu.
                  */
-                if (p.x < getTimeGraphViewer().getNameSpace()) {
+                if (p.x < getTimeGraphViewer().getNameSpace() || ((IStructuredSelection) getTimeGraphViewer().getTimeGraphControl().getSelection()).toArray()[1] instanceof NamedTimeEvent) {
                     timeGraphControl.setMenu(entryMenu);
                 } else {
                     timeGraphControl.setMenu(null);
@@ -2583,9 +2585,9 @@ public abstract class AbstractTimeGraphView extends TmfView implements ITmfTimeA
             Color baseBackGround = filterText.getBackground();
             filterText.addModifyListener(e -> {
                 filterText.setBackground(baseBackGround);
-                fRegex = filterText.getText();
+                setRegex(filterText.getText());
                 fTimeGraphViewer.setHideEntries(false);
-                fTimeGraphViewer.setTimeEventFilterApplied(fRegex != null && !fRegex.isEmpty());
+                setTimeEventFilterApplied(fRegex != null && !fRegex.isEmpty());
                 ZoomThread zoomThread = fZoomThread;
                 if (zoomThread != null) {
                     // Make sure that the zoom thread is not a restart (resume of the previous)
@@ -2606,13 +2608,13 @@ public abstract class AbstractTimeGraphView extends TmfView implements ITmfTimeA
                 @Override
                 public void keyPressed(KeyEvent e) {
                     if ((e.keyCode ^ SWT.CR) == 0) {
-                        fRegex = filterText.getText();
+                        setRegex(filterText.getText());
                         if (!fRegex.isEmpty()) {
                             //highlight to differeciate from the normal filter
                             filterText.setBackground(Display.getDefault().getSystemColor(SWT.COLOR_GRAY));
                         }
                         fTimeGraphViewer.setHideEntries(true);
-                        fTimeGraphViewer.setTimeEventFilterApplied(fRegex != null && !fRegex.isEmpty());
+                        setTimeEventFilterApplied(fRegex != null && !fRegex.isEmpty());
                         ZoomThread zoomThread = fZoomThread;
                         if (zoomThread != null) {
                             // Make sure that the zoom thread is not a restart (resume of the previous)
@@ -2629,7 +2631,7 @@ public abstract class AbstractTimeGraphView extends TmfView implements ITmfTimeA
                 if (e.detail == SWT.TRAVERSE_ESCAPE) {
                     fRegex = null;
                     fTimeGraphViewer.setHideEntries(false);
-                    fTimeGraphViewer.setTimeEventFilterApplied(false);
+                    setTimeEventFilterApplied(false);
                     Display.getDefault().asyncExec(() -> refresh());
                 }
             });
@@ -2667,4 +2669,19 @@ public abstract class AbstractTimeGraphView extends TmfView implements ITmfTimeA
         }
 
     }
+
+    /**
+     * @since 3.4
+     */
+    protected void setRegex(String regex) {
+        fRegex = regex;
+    }
+
+    /**
+     * @since 3.4
+     */
+    protected void setTimeEventFilterApplied(boolean filterApplied) {
+        fTimeGraphViewer.setTimeEventFilterApplied(filterApplied);
+    }
+
 }

@@ -100,7 +100,7 @@ public final class KernelThreadInformationProvider {
      * @return A set of all the thread IDs that are run on said CPUs on the time
      *         range. Empty set if there is no thread on the CPUs in this time
      *         range. Null if the information is not available.
-     * @since 2.5
+     * @since 2.6
      */
     public static @Nullable Set<Integer> getThreadsOfCpus(KernelAnalysisModule module, Collection<Long> cpus, long rangeStart, long rangeEnd) {
         ITmfStateSystem ss = module.getStateSystem();
@@ -167,7 +167,7 @@ public final class KernelThreadInformationProvider {
      * @return A set of all the thread IDs that are considered active in the time
      *         range. Empty set if there are none or if unavailable for the time
      *         range.
-     * @since 2.5
+     * @since 2.6
      */
     public static Set<Integer> getActiveThreadsForRange(KernelAnalysisModule module, long rangeStart, long rangeEnd) {
         ITmfStateSystem ss = module.getStateSystem();
@@ -310,7 +310,7 @@ public final class KernelThreadInformationProvider {
      * @param ts
      *            The timestamp at which to get the parent
      * @return The process ID or {@code null} if the pid is not found.
-     * @since 2.5
+     * @since 2.6
      */
     public static @Nullable Integer getProcessId(KernelAnalysisModule module, Integer threadId, long ts) {
         ITmfStateSystem ss = module.getStateSystem();

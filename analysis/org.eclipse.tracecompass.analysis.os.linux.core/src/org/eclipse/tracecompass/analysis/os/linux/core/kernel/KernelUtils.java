@@ -21,7 +21,7 @@ import com.google.common.collect.ImmutableSet;
  * Class containing utility methods for the kernel traces
  *
  * @author Geneviève Bastien
- * @since 2.5
+ * @since 2.6
  */
 public final class KernelUtils {
 

@@ -18,7 +18,7 @@ import org.eclipse.tracecompass.tmf.core.event.aspect.ITmfEventAspect;
  * occurred.
  *
  * @author Geneviève Bastien
- * @since 2.5
+ * @since 2.6
  */
 public abstract class LinuxPidAspect implements ITmfEventAspect<Integer> {
 

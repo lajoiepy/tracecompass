@@ -85,7 +85,7 @@ public class TmfProjectRegistry implements IResourceChangeListener {
     /**
      * Initializes the project registry
      *
-     * @since 3.3
+     * @since 3.4
      */
     public static void init() {
         /* static variables are initialized */

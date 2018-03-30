@@ -84,57 +84,57 @@ public class Messages extends NLS {
     /**
      * Label for null types
      *
-     * @since 3.3
+     * @since 3.4
      */
     public static String TypeNull;
 
     /**
      * Trace Entry state type name.
      *
-     * @since 3.3
+     * @since 3.4
      */
     public static String TraceEntry_StateTypeName;
     /**
      * Module Entry state type name
      *
-     * @since 3.3
+     * @since 3.4
      */
     public static String ModuleEntry_StateTypeName;
     /**
      * State System Entry state type name
      *
-     * @since 3.3
+     * @since 3.4
      */
     public static String StateSystemEntry_StateTypeName;
     /**
      * Attribute Entry state type name
      *
-     * @since 3.3
+     * @since 3.4
      */
     public static String AttributeEntry_StateTypeName;
 
     /**
      * Module help text tool tip entry name
      *
-     * @since 3.3
+     * @since 3.4
      */
     public static String ModuleHelpText;
     /**
      * Module is automatic tool tip entry name
      *
-     * @since 3.3
+     * @since 3.4
      */
     public static String ModuleIsAutomatic;
     /**
      * Tooltip for the expand button
      *
-     * @since 3.3
+     * @since 3.4
      */
     public static String ExpandButton;
     /**
      * Tooltip for the collapse button
      *
-     * @since 3.3
+     * @since 3.4
      */
     public static String CollapseButton;
 }

@@ -247,7 +247,7 @@ public abstract class TmfView extends ViewPart implements ITmfComponent {
      * Get the save action
      *
      * @return the save action
-     * @since 3.3
+     * @since 3.4
      */
     protected @Nullable IAction createSaveAction() {
         return null;
