@@ -67,7 +67,7 @@ public interface ISegmentStoreDensityViewerDataListener {
 
     /**
      * Notification that chart updated
-     * @since 2.3
+     * @since 2.2
      */
     default void chartUpdated() {
         // To be implemented in children

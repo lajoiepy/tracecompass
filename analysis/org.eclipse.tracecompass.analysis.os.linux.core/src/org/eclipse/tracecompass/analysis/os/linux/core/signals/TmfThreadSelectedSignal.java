@@ -44,7 +44,7 @@ public class TmfThreadSelectedSignal extends TmfTraceModelSignal {
      *            the source
      * @param hostThread
      *            The Host thread to follow
-     * @since 2.6
+     * @since 2.5
      */
     public TmfThreadSelectedSignal(Object source, HostThread hostThread) {
         super(source, 0, hostThread.getHost());

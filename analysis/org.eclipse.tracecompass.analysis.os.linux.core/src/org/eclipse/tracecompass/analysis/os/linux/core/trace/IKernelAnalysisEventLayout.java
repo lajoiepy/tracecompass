@@ -236,7 +236,7 @@ public interface IKernelAnalysisEventLayout {
      * another.
      *
      * @return The event name
-     * @since 2.6
+     * @since 2.5
      */
     default String eventSchedMigrateTask() {
         return "sched_migrate_task"; //$NON-NLS-1$
@@ -462,7 +462,7 @@ public interface IKernelAnalysisEventLayout {
      * activities, to know what is the process of the thread being cloned.
      *
      * @return the name of the field with the child process ID
-     * @since 2.6
+     * @since 2.5
      */
     default String fieldChildPid() {
         return "child_pid"; //$NON-NLS-1$
@@ -638,7 +638,7 @@ public interface IKernelAnalysisEventLayout {
      * events.
      *
      * @return The field name
-     * @since 2.6
+     * @since 2.5
      */
     default String fieldTargetCpu() {
         return "target_cpu"; //$NON-NLS-1$
@@ -649,7 +649,7 @@ public interface IKernelAnalysisEventLayout {
      * thread being migrated.
      *
      * @return The field name
-     * @since 2.6
+     * @since 2.5
      */
     default String fieldDestCpu() {
         return "dest_cpu"; //$NON-NLS-1$
