@@ -16,7 +16,7 @@ import org.eclipse.tracecompass.tmf.ui.widgets.timegraph.ITimeGraphPresentationP
  * Legend provider
  *
  * @author Matthew Khouzam
- * @since 3.4
+ * @since 3.3
  */
 public interface ITimeGraphLegendProvider {
 

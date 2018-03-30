@@ -504,7 +504,7 @@ public abstract class TmfStateSystemAnalysisModule extends TmfAbstractAnalysisMo
      * @param deleteFiles
      *            If <code>true</code>, files that were built during the execution
      *            should be deleted, otherwise they should be saved.
-     * @since 3.4
+     * @since 3.3
      */
     protected void completingBuild(boolean deleteFiles) {
         // Nothing to do, classes may override this

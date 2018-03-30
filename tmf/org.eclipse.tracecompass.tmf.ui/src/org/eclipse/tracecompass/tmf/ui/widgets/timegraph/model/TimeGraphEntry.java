@@ -114,7 +114,7 @@ public class TimeGraphEntry implements ITimeGraphEntry {
      *
      * @param model
      *            Time graph model
-     * @since 3.4
+     * @since 3.3
      */
     public TimeGraphEntry(TimeGraphEntryModel model) {
         fModel = model;
@@ -443,7 +443,7 @@ public class TimeGraphEntry implements ITimeGraphEntry {
      * Getter for the underlying time graph entry model
      *
      * @return The underlying time graph entry model
-     * @since 3.4
+     * @since 3.3
      */
     public ITimeGraphEntryModel getModel() {
         return fModel;
@@ -454,7 +454,7 @@ public class TimeGraphEntry implements ITimeGraphEntry {
      *
      * @param model
      *            new model for this TimeGraphEntry.
-     * @since 3.4
+     * @since 3.3
      */
     public void updateModel(@NonNull TimeGraphEntryModel model) {
         if (fModel.getId() != model.getId()) {

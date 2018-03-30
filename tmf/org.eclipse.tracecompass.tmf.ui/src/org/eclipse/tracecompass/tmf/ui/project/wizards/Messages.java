@@ -126,12 +126,12 @@ public class Messages extends NLS {
     public static String CopyExperimentDialog_ExperimentNewName;
     /**
      * Text for deep copy of an experiment button
-     * @since 3.4
+     * @since 3.3
      */
     public static String CopyExperimentDialog_DeepCopyButton;
     /**
      * Error message when the destination folder for traces already exist.
-     * @since 3.4
+     * @since 3.3
      */
     public static String CopyExperimentDialog_DeepCopyError;
     /**
@@ -160,17 +160,17 @@ public class Messages extends NLS {
     public static String CopyTraceDialog_TraceNewName;
     /**
      * The description for how to copy a trace.
-     * @since 3.4
+     * @since 3.3
      */
     public static String CopyTraceDialog_Description;
     /**
      * Text for copy as link button
-     * @since 3.4
+     * @since 3.3
      */
     public static String CopyTraceDialog_CopyLinkButton;
     /**
      * Text for copy the trace button
-     * @since 3.4
+     * @since 3.3
      */
     public static String CopyTraceDialog_CopyTraceButton;
     /**

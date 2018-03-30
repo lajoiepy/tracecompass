@@ -22,7 +22,7 @@ import org.eclipse.tracecompass.tmf.core.timestamp.TmfTimePreferences;
  * Format time to be used in different views.
  *
  * @author Simon Delisle
- * @since 3.4
+ * @since 3.3
  */
 public final class FormatTimeUtils {
     private FormatTimeUtils() {

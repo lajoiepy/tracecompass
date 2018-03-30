@@ -1058,7 +1058,7 @@ public abstract class AbstractTimeGraphView extends TmfView implements ITmfTimeA
      *
      * @param legendProvider
      *            the legend provider
-     * @since 3.4
+     * @since 3.3
      */
     public void setLegendProvider(ITimeGraphLegendProvider legendProvider) {
         fLegendProvider = legendProvider;
@@ -1793,7 +1793,7 @@ public abstract class AbstractTimeGraphView extends TmfView implements ITmfTimeA
      * Gets the trace to viewer filters map.
      *
      * @return The trace to viewer filters map
-     * @since 3.4
+     * @since 3.3
      */
     protected @NonNull Map<ITmfTrace, ViewerFilter[]> getFiltersMap() {
         return checkNotNull(fFiltersMap);

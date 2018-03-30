@@ -74,7 +74,7 @@ public class Utils {
         /**
          * Convert the {@link TimeFormat} to a {@link org.eclipse.tracecompass.tmf.ui.views.FormatTimeUtils.TimeFormat}
          * @return the converted time format
-         * @since 3.4
+         * @since 3.3
          */
         public FormatTimeUtils.TimeFormat convert() {
             return tf;
@@ -105,7 +105,7 @@ public class Utils {
         /**
          * Convert the {@link Resolution} to a {@link org.eclipse.tracecompass.tmf.ui.views.FormatTimeUtils.Resolution}
          * @return the converted resolution
-         * @since 3.4
+         * @since 3.3
          */
         public FormatTimeUtils.Resolution convert() {
             return res;
@@ -915,7 +915,7 @@ public class Utils {
      * @param root
      *            root entry from which to flatten the tree.
      * @return an {@link Iterable} over the entries.
-     * @since 3.4
+     * @since 3.3
      */
     public static @NonNull Iterable<@NonNull TimeGraphEntry> flatten(TimeGraphEntry root) {
         Iterable<Iterable<TimeGraphEntry>> transform = Iterables.transform(root.getChildren(), Utils::flatten);

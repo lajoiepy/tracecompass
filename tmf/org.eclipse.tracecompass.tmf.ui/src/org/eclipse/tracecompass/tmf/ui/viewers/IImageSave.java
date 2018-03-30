@@ -22,7 +22,7 @@ import org.eclipse.swt.widgets.Display;
  * allow their content to be exported as an image. The default implementation
  * exports the canvas as a PNG image.
  *
- * @since 3.4
+ * @since 3.3
  * @author Matthew Khouzam
  */
 public interface IImageSave {
