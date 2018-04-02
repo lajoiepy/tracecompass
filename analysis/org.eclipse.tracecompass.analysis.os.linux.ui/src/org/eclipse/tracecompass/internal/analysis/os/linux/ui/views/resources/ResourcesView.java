@@ -213,6 +213,7 @@ public class ResourcesView extends BaseDataProviderTimeGraphView {
         if (data >= 0) {
             setRegex("Current_thread=="+((Integer) data).toString()); //$NON-NLS-1$
             setTimeEventFilterApplied(true);
+            refresh();
         } else {
             setTimeEventFilterApplied(false);
         }
