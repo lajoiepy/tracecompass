@@ -25,6 +25,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -205,6 +206,8 @@ public abstract class AbstractTimeGraphView extends TmfView implements ITmfTimeA
         IDLE, BUSY, PENDING
     }
 
+    private static final String DIALOG_ID = "Dialog"; //$NON-NLS-1$
+
     // ------------------------------------------------------------------------
     // Fields
     // ------------------------------------------------------------------------
@@ -342,7 +345,7 @@ public abstract class AbstractTimeGraphView extends TmfView implements ITmfTimeA
     private static final int Y_OFFSET = -15;
 
     /** The time event filter regex */
-    private String fRegex;
+    private Map<String, String> fRegex = new HashMap<>();
 
     /** The find action handler */
     private ActionHandler fFindActionHandler;
@@ -639,7 +642,7 @@ public abstract class AbstractTimeGraphView extends TmfView implements ITmfTimeA
     protected void zoomEntries(@NonNull Iterable<@NonNull TimeGraphEntry> entries,
             long zoomStartTime, long zoomEndTime, long resolution, @NonNull IProgressMonitor monitor) {
 
-        String regex = getRegex();
+        String regex = getRegexString();
         BiPredicate<IItem, Function<IItem, Map<String, String>>> tmpPredicate = null;
         if (!regex.isEmpty()) {
             FilterCu cu = FilterCu.compile(regex);
@@ -2426,8 +2429,8 @@ public abstract class AbstractTimeGraphView extends TmfView implements ITmfTimeA
      * @return The time event filter regex
      * @since 3.4
      */
-    protected @NonNull String getRegex() {
-        return NonNullUtils.nullToEmptyString(fRegex);
+    protected @NonNull Map<String, String> getRegex() {
+        return fRegex;
     }
 
     /**
@@ -2580,12 +2583,12 @@ public abstract class AbstractTimeGraphView extends TmfView implements ITmfTimeA
             gridData.widthHint = FIND_X_WIDTH_HINT;
             filterText.setLayoutData(gridData);
             if (fRegex != null) {
-                filterText.setText(fRegex);
+                addRegex(DIALOG_ID, filterText.getText());
             }
             Color baseBackGround = filterText.getBackground();
             filterText.addModifyListener(e -> {
                 filterText.setBackground(baseBackGround);
-                setRegex(filterText.getText());
+                addRegex(DIALOG_ID, filterText.getText());
                 fTimeGraphViewer.setHideEntries(false);
                 setTimeEventFilterApplied(fRegex != null && !fRegex.isEmpty());
                 ZoomThread zoomThread = fZoomThread;
@@ -2608,9 +2611,9 @@ public abstract class AbstractTimeGraphView extends TmfView implements ITmfTimeA
                 @Override
                 public void keyPressed(KeyEvent e) {
                     if ((e.keyCode ^ SWT.CR) == 0) {
-                        setRegex(filterText.getText());
+                        addRegex(DIALOG_ID, filterText.getText());
                         if (!fRegex.isEmpty()) {
-                            //highlight to differeciate from the normal filter
+                            // highlight to differeciate from the normal filter
                             filterText.setBackground(Display.getDefault().getSystemColor(SWT.COLOR_GRAY));
                         }
                         fTimeGraphViewer.setHideEntries(true);
@@ -2673,7 +2676,7 @@ public abstract class AbstractTimeGraphView extends TmfView implements ITmfTimeA
     /**
      * @since 3.4
      */
-    protected void setRegex(String regex) {
+    protected void setRegex(Map<String, String> regex) {
         fRegex = regex;
     }
 
@@ -2682,6 +2685,47 @@ public abstract class AbstractTimeGraphView extends TmfView implements ITmfTimeA
      */
     protected void setTimeEventFilterApplied(boolean filterApplied) {
         fTimeGraphViewer.setTimeEventFilterApplied(filterApplied);
+    }
+
+    /**
+     * @return all the regex in one formatted string.
+     * @since 3.4
+     */
+
+    protected String getRegexString() {
+        if (!fRegex.isEmpty()) {
+            Collection<String> regexes = fRegex.values();
+            Iterator<String> regexesIterator = regexes.iterator();
+            String regex = regexesIterator.next();
+            while (regexesIterator.hasNext()) {
+                String nextRegex = regexesIterator.next();
+                if (!nextRegex.equals("")) //$NON-NLS-1$
+                {
+                    regex += " || " + nextRegex; //$NON-NLS-1$
+                }
+            }
+            return regex;
+        }
+        return ""; //$NON-NLS-1$
+    }
+
+    /**
+     * @param id
+     *            is to identify where the regex comes from (text input in
+     *            ResourcesView, follow thread, etc)
+     * @param regex
+     *            is the regex to be added to the list of regexes.
+     */
+    protected void addRegex(String id, String regex) {
+        fRegex.put(id, regex);
+    }
+
+    /**
+     * @param id
+     *            Remove regex specified by a source
+     */
+    protected void removeRegex(String id) {
+        fRegex.remove(id);
     }
 
 }

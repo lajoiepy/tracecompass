@@ -20,6 +20,7 @@ import java.util.Map.Entry;
 import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.core.runtime.SubMonitor;
 import org.eclipse.jdt.annotation.NonNull;
+import org.eclipse.tracecompass.internal.provisional.tmf.core.model.filters.SelectionTimeQueryFilter;
 import org.eclipse.tracecompass.internal.provisional.tmf.core.model.filters.TimeQueryFilter;
 import org.eclipse.tracecompass.internal.provisional.tmf.core.model.filters.TimegraphStateQueryFilter;
 import org.eclipse.tracecompass.internal.provisional.tmf.core.model.timegraph.ITimeGraphDataProvider;
@@ -274,7 +275,7 @@ public class BaseDataProviderTimeGraphView extends AbstractTimeGraphView {
         for (Entry<ITimeGraphDataProvider<? extends TimeGraphEntryModel>, Multimap<Long, TimeGraphEntry>> entry : groupedEntries.entrySet()) {
             ITimeGraphDataProvider<? extends TimeGraphEntryModel> dataProvider = entry.getKey();
             Multimap<Long, TimeGraphEntry> map = entry.getValue();
-            TimegraphStateQueryFilter filter = new TimegraphStateQueryFilter(times, map.keySet(), getRegex(), getPresentationProvider().isHideNotCool());
+            SelectionTimeQueryFilter filter = new TimegraphStateQueryFilter(times, map.keySet(), getRegexString(), getPresentationProvider().isHideNotCool());
             TmfModelResponse<List<ITimeGraphRowModel>> response = dataProvider.fetchRowModel(filter, monitor);
 
             List<ITimeGraphRowModel> model = response.getModel();

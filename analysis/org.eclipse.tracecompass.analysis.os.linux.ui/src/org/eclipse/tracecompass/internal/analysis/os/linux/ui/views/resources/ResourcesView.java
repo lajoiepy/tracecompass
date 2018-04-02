@@ -54,7 +54,9 @@ public class ResourcesView extends BaseDataProviderTimeGraphView {
     /** ID of the followed CPU in the map data in {@link TmfTraceContext} */
     public static final @NonNull String RESOURCES_FOLLOW_CPU = ID + ".FOLLOW_CPU"; //$NON-NLS-1$
 
-    /** ID of the followed Current Thread in the map data in {@link TmfTraceContext} */
+    /**
+     * ID of the followed Current Thread in the map data in {@link TmfTraceContext}
+     */
     public static final @NonNull String RESOURCES_FOLLOW_CURRENT_THREAD = ID + ".FOLLOW_CURRENT_THREAD"; //$NON-NLS-1$
 
     private static final String[] FILTER_COLUMN_NAMES = new String[] {
@@ -211,11 +213,12 @@ public class ResourcesView extends BaseDataProviderTimeGraphView {
         TmfTraceManager.getInstance().updateTraceContext(trace,
                 builder -> builder.setData(RESOURCES_FOLLOW_CURRENT_THREAD, data));
         if (data >= 0) {
-            setRegex("Current_thread=="+((Integer) data).toString()); //$NON-NLS-1$
+            addRegex(RESOURCES_FOLLOW_CURRENT_THREAD, "Current_thread==" + ((Integer) data).toString()); //$NON-NLS-1$
             setTimeEventFilterApplied(true);
-            refresh();
+
         } else {
-            setTimeEventFilterApplied(false);
+            removeRegex(RESOURCES_FOLLOW_CURRENT_THREAD);
         }
+        refresh();
     }
 }

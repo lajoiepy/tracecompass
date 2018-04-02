@@ -182,7 +182,7 @@ public abstract class AbstractStateSystemTimeGraphView extends AbstractTimeGraph
         private void zoom(@NonNull TimeGraphEntry entry, ITmfStateSystem ss, @NonNull List<List<ITmfStateInterval>> fullStates, @Nullable List<ITmfStateInterval> prevFullState, @NonNull IProgressMonitor monitor) {
             List<ITimeEvent> eventList = getEventList(entry, ss, fullStates, prevFullState, monitor);
 
-            String regex = getRegex();
+            String regex = getRegexString();
             BiPredicate<IItem, Function<IItem, Map<String, String>>> tmpPredicate = null;
             if (!regex.isEmpty()) {
                 FilterCu cu = FilterCu.compile(regex);
