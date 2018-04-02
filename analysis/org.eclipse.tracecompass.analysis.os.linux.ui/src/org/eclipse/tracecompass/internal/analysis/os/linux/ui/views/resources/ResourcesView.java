@@ -21,12 +21,15 @@ import org.eclipse.jface.action.IMenuManager;
 import org.eclipse.jface.viewers.ISelection;
 import org.eclipse.jface.viewers.IStructuredSelection;
 import org.eclipse.tracecompass.analysis.os.linux.core.signals.TmfCpuSelectedSignal;
+import org.eclipse.tracecompass.analysis.os.linux.core.signals.TmfThreadSelectedSignal;
 import org.eclipse.tracecompass.internal.analysis.os.linux.core.resourcesstatus.ResourcesEntryModel;
 import org.eclipse.tracecompass.internal.analysis.os.linux.core.resourcesstatus.ResourcesEntryModel.Type;
 import org.eclipse.tracecompass.internal.analysis.os.linux.core.resourcesstatus.ResourcesStatusDataProvider;
 import org.eclipse.tracecompass.internal.analysis.os.linux.ui.Messages;
 import org.eclipse.tracecompass.internal.analysis.os.linux.ui.actions.FollowCpuAction;
+import org.eclipse.tracecompass.internal.analysis.os.linux.ui.actions.FollowThreadAction;
 import org.eclipse.tracecompass.internal.analysis.os.linux.ui.actions.UnfollowCpuAction;
+import org.eclipse.tracecompass.internal.analysis.os.linux.ui.actions.UnfollowThreadAction;
 import org.eclipse.tracecompass.internal.provisional.tmf.core.model.timegraph.ITimeGraphEntryModel;
 import org.eclipse.tracecompass.tmf.core.signal.TmfSignalHandler;
 import org.eclipse.tracecompass.tmf.core.trace.ITmfTrace;
@@ -34,6 +37,7 @@ import org.eclipse.tracecompass.tmf.core.trace.TmfTraceContext;
 import org.eclipse.tracecompass.tmf.core.trace.TmfTraceManager;
 import org.eclipse.tracecompass.tmf.ui.views.timegraph.BaseDataProviderTimeGraphView;
 import org.eclipse.tracecompass.tmf.ui.widgets.timegraph.model.ITimeGraphEntry;
+import org.eclipse.tracecompass.tmf.ui.widgets.timegraph.model.NamedTimeEvent;
 import org.eclipse.tracecompass.tmf.ui.widgets.timegraph.model.TimeGraphEntry;
 
 /**
@@ -48,6 +52,11 @@ public class ResourcesView extends BaseDataProviderTimeGraphView {
 
     /** ID of the followed CPU in the map data in {@link TmfTraceContext} */
     public static final @NonNull String RESOURCES_FOLLOW_CPU = ID + ".FOLLOW_CPU"; //$NON-NLS-1$
+
+    /**
+     * ID of the followed Current Thread in the map data in {@link TmfTraceContext}
+     */
+    public static final @NonNull String RESOURCES_FOLLOW_CURRENT_THREAD = ID + ".FOLLOW_CURRENT_THREAD"; //$NON-NLS-1$
 
     private static final String[] FILTER_COLUMN_NAMES = new String[] {
             Messages.ResourcesView_stateTypeName
@@ -123,6 +132,33 @@ public class ResourcesView extends BaseDataProviderTimeGraphView {
         }
     }
 
+    /**
+     * @since 2.0
+     */
+    @Override
+    protected void fillTimeEventContextMenu(@NonNull IMenuManager menuManager) {
+        ISelection selection = getSite().getSelectionProvider().getSelection();
+        if (selection instanceof IStructuredSelection) {
+            IStructuredSelection sSel = (IStructuredSelection) selection;
+            if (sSel.getFirstElement() instanceof TimeGraphEntry) {
+                TimeGraphEntry resourcesEntry = (TimeGraphEntry) sSel.getFirstElement();
+                ITimeGraphEntryModel model = resourcesEntry.getModel();
+                if (sSel.toArray()[1] instanceof NamedTimeEvent && ((ResourcesEntryModel) model).getType() == Type.CURRENT_THREAD) {
+                    ITmfTrace trace = getTrace(resourcesEntry);
+                    NamedTimeEvent event = (NamedTimeEvent) sSel.toArray()[1];
+                    TmfTraceContext ctx = TmfTraceManager.getInstance().getCurrentTraceContext();
+                    Integer data = (Integer) ctx.getData(RESOURCES_FOLLOW_CURRENT_THREAD);
+                    int tid = data != null ? data.intValue() : -1;
+                    if (tid >= 0) {
+                        menuManager.add(new UnfollowThreadAction(ResourcesView.this));
+                    } else {
+                        menuManager.add(new FollowThreadAction(ResourcesView.this, null, event.getValue(), trace));
+                    }
+                }
+            }
+        }
+    }
+
     private static class ResourcesFilterLabelProvider extends TreeLabelProvider {
         @Override
         public String getColumnText(Object element, int columnIndex) {
@@ -175,4 +211,28 @@ public class ResourcesView extends BaseDataProviderTimeGraphView {
                 builder -> builder.setData(RESOURCES_FOLLOW_CPU, data));
     }
 
+    /**
+     * Signal handler for a thread selected signal.
+     *
+     * @param signal
+     *            the thread selected signal
+     * @since 2.0
+     */
+    @TmfSignalHandler
+    public void listenToCurrentThread(TmfThreadSelectedSignal signal) {
+        int data = signal.getThreadId() >= 0 ? signal.getThreadId() : -1;
+        ITmfTrace trace = getTrace();
+        if (trace == null) {
+            return;
+        }
+        TmfTraceManager.getInstance().updateTraceContext(trace,
+                builder -> builder.setData(RESOURCES_FOLLOW_CURRENT_THREAD, data));
+        if (data >= 0) {
+            addRegex(RESOURCES_FOLLOW_CURRENT_THREAD, "Current_thread==" + ((Integer) data).toString()); //$NON-NLS-1$
+            setTimeEventFilterApplied(true);
+        } else {
+            removeRegex(RESOURCES_FOLLOW_CURRENT_THREAD);
+        }
+        refresh();
+    }
 }

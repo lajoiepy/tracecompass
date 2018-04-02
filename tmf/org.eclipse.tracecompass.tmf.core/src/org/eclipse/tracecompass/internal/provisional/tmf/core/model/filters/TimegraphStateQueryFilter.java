@@ -57,7 +57,7 @@ public class TimegraphStateQueryFilter extends SelectionTimeQueryFilter {
      * @param regex
      *            The regex use to filter the queried data
      * @param removeUnmatched
-     *            Tells whether unmatched items should be rerurned or not
+     *            Tells whether unmatched items should be returned or not
      */
     public TimegraphStateQueryFilter(long start, long end, int n, Collection<Long> items, Multimap<String, String> regex, boolean removeUnmatched) {
         super(start, end, n, items);

@@ -68,7 +68,7 @@ public class FollowThreadAction extends Action {
     @Override
     public String getText() {
         if (fThreadName == null) {
-            return Messages.FollowThreadAction_follow + ' ' + fHostThread.getTid();
+            return Messages.FollowThreadAction_follow + " TID " + fHostThread.getTid(); //$NON-NLS-1$
         }
         return Messages.FollowThreadAction_follow + ' ' + fThreadName + '/' + fHostThread.getTid();
     }
