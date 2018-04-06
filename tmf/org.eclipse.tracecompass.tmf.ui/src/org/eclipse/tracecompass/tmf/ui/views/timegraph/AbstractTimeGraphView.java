@@ -2632,7 +2632,7 @@ public abstract class AbstractTimeGraphView extends TmfView implements ITmfTimeA
             // support close on escape button
             getShell().addListener(SWT.Traverse, e -> {
                 if (e.detail == SWT.TRAVERSE_ESCAPE) {
-                    fRegex = null;
+                    removeRegex(DIALOG_ID);
                     fTimeGraphViewer.setHideEntries(false);
                     setTimeEventFilterApplied(false);
                     Display.getDefault().asyncExec(() -> refresh());
@@ -2726,6 +2726,9 @@ public abstract class AbstractTimeGraphView extends TmfView implements ITmfTimeA
      */
     protected void removeRegex(String id) {
         fRegex.remove(id);
+        if (fRegex.isEmpty()) {
+            setTimeEventFilterApplied(false);
+        }
     }
 
 }
