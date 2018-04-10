@@ -30,15 +30,20 @@ import org.eclipse.tracecompass.internal.analysis.os.linux.ui.actions.FollowCpuA
 import org.eclipse.tracecompass.internal.analysis.os.linux.ui.actions.FollowThreadAction;
 import org.eclipse.tracecompass.internal.analysis.os.linux.ui.actions.UnfollowCpuAction;
 import org.eclipse.tracecompass.internal.analysis.os.linux.ui.actions.UnfollowThreadAction;
+import org.eclipse.tracecompass.internal.provisional.tmf.core.model.timegraph.IItemProperties;
 import org.eclipse.tracecompass.internal.provisional.tmf.core.model.timegraph.ITimeGraphEntryModel;
 import org.eclipse.tracecompass.tmf.core.signal.TmfSignalHandler;
 import org.eclipse.tracecompass.tmf.core.trace.ITmfTrace;
 import org.eclipse.tracecompass.tmf.core.trace.TmfTraceContext;
 import org.eclipse.tracecompass.tmf.core.trace.TmfTraceManager;
 import org.eclipse.tracecompass.tmf.ui.views.timegraph.BaseDataProviderTimeGraphView;
+import org.eclipse.tracecompass.tmf.ui.widgets.timegraph.ITimeGraphPresentationProvider2;
+import org.eclipse.tracecompass.tmf.ui.widgets.timegraph.TimeGraphPresentationProvider;
 import org.eclipse.tracecompass.tmf.ui.widgets.timegraph.model.ITimeGraphEntry;
 import org.eclipse.tracecompass.tmf.ui.widgets.timegraph.model.NamedTimeEvent;
 import org.eclipse.tracecompass.tmf.ui.widgets.timegraph.model.TimeGraphEntry;
+
+import com.google.common.collect.Multimap;
 
 /**
  * Main implementation for the LTTng 2.0 kernel Resource view
@@ -211,6 +216,14 @@ public class ResourcesView extends BaseDataProviderTimeGraphView {
                 builder -> builder.setData(RESOURCES_FOLLOW_CPU, data));
     }
 
+    String fFollowThreadRegex = "";
+    @Override
+    protected @NonNull Multimap<@NonNull String, @NonNull String> getRegexes() {
+        Multimap<@NonNull String, @NonNull String> regexes = super.getRegexes();
+        regexes.put(IItemProperties.drawBound(), fFollowThreadRegex);
+        return regexes;
+    }
+
     /**
      * Signal handler for a thread selected signal.
      *
@@ -228,11 +241,14 @@ public class ResourcesView extends BaseDataProviderTimeGraphView {
         TmfTraceManager.getInstance().updateTraceContext(trace,
                 builder -> builder.setData(RESOURCES_FOLLOW_CURRENT_THREAD, data));
         if (data >= 0) {
-            addRegex(RESOURCES_FOLLOW_CURRENT_THREAD, "Current_thread==" + ((Integer) data).toString()); //$NON-NLS-1$
-            setTimeEventFilterApplied(true);
+            fFollowThreadRegex = "Current_thread==" + ((Integer) data).toString(); //$NON-NLS-1$
+            ITimeGraphPresentationProvider2 presentationProvider = getPresentationProvider();
+            if (presentationProvider instanceof TimeGraphPresentationProvider) {
+                ((TimeGraphPresentationProvider) presentationProvider).setTimegraphFilteringModeStatus(true);
+            }
         } else {
-            removeRegex(RESOURCES_FOLLOW_CURRENT_THREAD);
+            fFollowThreadRegex=""; //$NON-NLS-1$
         }
-        refresh();
+        restartZoomThread();
     }
 }
