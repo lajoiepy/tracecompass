@@ -15,19 +15,19 @@
 package org.eclipse.tracecompass.tmf.ui.widgets.timegraph;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 import org.eclipse.swt.graphics.GC;
 import org.eclipse.swt.graphics.Image;
 import org.eclipse.swt.graphics.Rectangle;
+import org.eclipse.tracecompass.internal.provisional.tmf.core.model.timegraph.IItemProperties;
 import org.eclipse.tracecompass.internal.tmf.ui.Messages;
 import org.eclipse.tracecompass.tmf.ui.widgets.timegraph.model.ITimeEvent;
 import org.eclipse.tracecompass.tmf.ui.widgets.timegraph.model.ITimeEventStyleStrings;
 import org.eclipse.tracecompass.tmf.ui.widgets.timegraph.model.ITimeGraphEntry;
 import org.eclipse.tracecompass.tmf.ui.widgets.timegraph.widgets.ITmfTimeGraphDrawingHelper;
-
-import com.google.common.collect.ImmutableMap;
 
 /**
  * Provider class for the time graph provider
@@ -178,10 +178,17 @@ public class TimeGraphPresentationProvider implements ITimeGraphPresentationProv
 
     @Override
     public Map<String, Object> getSpecificEventStyle(ITimeEvent event) {
-        Map<String, Object> specificEventStyle = ITimeGraphPresentationProvider2.super.getSpecificEventStyle(event);
-        if (isFilterApplied() && event.isNotCool()) {
-            Integer color = (Integer) specificEventStyle.getOrDefault(ITimeEventStyleStrings.fillColor(), 255);
-            return ImmutableMap.of(ITimeEventStyleStrings.fillColor(), (color.intValue() | 0xff) & 0xffffff3f, ITimeEventStyleStrings.annotated(), true);
+        Map<String, Object> specificEventStyle = new HashMap<>(ITimeGraphPresentationProvider2.super.getSpecificEventStyle(event));
+        if (isFilterApplied()) {
+            if (!event.isPropertyActive(IItemProperties.fullAlpha())) {
+                Integer color = (Integer) specificEventStyle.getOrDefault(ITimeEventStyleStrings.fillColor(), 255);
+                specificEventStyle.put(ITimeEventStyleStrings.fillColor(), (color.intValue() | 0xff) & 0xffffff3f);
+                specificEventStyle.put(ITimeEventStyleStrings.annotated(), true);
+            }
+            if (event.isPropertyActive(IItemProperties.drawBound())) {
+                specificEventStyle.put(ITimeEventStyleStrings.borderColor(), 0xff3300ff);
+                specificEventStyle.put(ITimeEventStyleStrings.annotated(), false);
+            }
         }
         return specificEventStyle;
     }
@@ -221,7 +228,7 @@ public class TimeGraphPresentationProvider implements ITimeGraphPresentationProv
      * @since 3.4
      */
     @Override
-    public boolean isHideNotCool() {
+    public boolean removeUnmatched() {
         return fHideNotCool;
     }
 }

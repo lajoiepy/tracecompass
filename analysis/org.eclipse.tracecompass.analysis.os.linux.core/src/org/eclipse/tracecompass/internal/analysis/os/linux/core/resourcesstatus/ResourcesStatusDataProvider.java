@@ -35,7 +35,6 @@ import org.eclipse.tracecompass.analysis.os.linux.core.trace.IKernelTrace;
 import org.eclipse.tracecompass.internal.analysis.os.linux.core.kernel.Attributes;
 import org.eclipse.tracecompass.internal.analysis.os.linux.core.resourcesstatus.ResourcesEntryModel.Type;
 import org.eclipse.tracecompass.internal.provisional.tmf.core.model.CommonStatusMessage;
-import org.eclipse.tracecompass.internal.provisional.tmf.core.model.filter.parser.FilterCu;
 import org.eclipse.tracecompass.internal.provisional.tmf.core.model.filters.SelectionTimeQueryFilter;
 import org.eclipse.tracecompass.internal.provisional.tmf.core.model.filters.TimeQueryFilter;
 import org.eclipse.tracecompass.internal.provisional.tmf.core.model.filters.TimegraphStateQueryFilter;
@@ -245,15 +244,13 @@ public class ResourcesStatusDataProvider extends AbstractTimeGraphDataProvider<@
             intervals.put(interval.getAttribute(), interval);
         }
 
-        String filterString = ""; //$NON-NLS-1$
         boolean removeUnmatched = false;
+        Map<String, BiPredicate<IItem, Function<IItem, Map<String, String>>>> predicates = Collections.emptyMap();
         if (filter instanceof TimegraphStateQueryFilter) {
             TimegraphStateQueryFilter timeEventFilter = (TimegraphStateQueryFilter) filter;
-            filterString = timeEventFilter.getRegex();
             removeUnmatched = timeEventFilter.removeUnmatched();
+            predicates = buildPredicates(timeEventFilter.getRegex());
         }
-        FilterCu cu = FilterCu.compile(filterString);
-        BiPredicate<IItem, Function<IItem, Map<String, String>>> predicate = cu != null ? cu.generate() : null;
 
         List<ITimeGraphRowModel> rows = new ArrayList<>();
 
@@ -263,7 +260,7 @@ public class ResourcesStatusDataProvider extends AbstractTimeGraphDataProvider<@
             }
 
             List<ITimeGraphState> eventList = new ArrayList<>();
-            Long key = entry.getKey();
+            @NonNull Long key = Objects.requireNonNull(entry.getKey());
             for (ITmfStateInterval interval : intervals.get(entry.getValue())) {
                 long startTime = interval.getStartTime();
                 long duration = interval.getEndTime() - startTime + 1;
@@ -275,12 +272,13 @@ public class ResourcesStatusDataProvider extends AbstractTimeGraphDataProvider<@
                     int currentThreadQuark = ss.optQuarkRelative(interval.getAttribute(), Attributes.CURRENT_THREAD);
                     if (type == Type.CPU && s == StateValues.CPU_STATUS_RUN_SYSCALL) {
                         ITimeGraphState timegraphState = getSyscall(ss, interval, intervals.get(currentThreadQuark));
-                        addToEventList(eventList, timegraphState, key, predicate, removeUnmatched, startTime);
+                        addToEventList(eventList, timegraphState, key, predicates, removeUnmatched, startTime);
                     } else if (type == Type.CPU && s == StateValues.CPU_STATUS_RUN_USERMODE) {
                         // add events for all the sampled current threads.
                         boolean remove = removeUnmatched;
                         List<TimeGraphState> currentThreads = getCurrentThreads(ss, interval, intervals.get(currentThreadQuark));
-                        currentThreads.forEach(timeGraphState -> addToEventList(eventList, timeGraphState, key, predicate, remove, startTime));
+                        Map<@NonNull String, @NonNull BiPredicate<IItem, Function<IItem, Map<String, String>>>> Filterpredicates = predicates;
+                        currentThreads.forEach(timeGraphState -> addToEventList(eventList, timeGraphState, key, Filterpredicates, remove, startTime));
                     } else if (type == Type.CURRENT_THREAD && s != 0) {
                         String execName = null;
                         synchronized (fExecNamesCache) {
@@ -300,14 +298,14 @@ public class ResourcesStatusDataProvider extends AbstractTimeGraphDataProvider<@
                             }
                         }
                         TimeGraphState timeGraphState = new TimeGraphState(startTime, duration, s, execName != null ? execName + ' ' + '(' + String.valueOf(s) + ')' : String.valueOf(s));
-                        addToEventList(eventList, timeGraphState, key, predicate, removeUnmatched, startTime);
+                        addToEventList(eventList, timeGraphState, key, predicates, removeUnmatched, startTime);
                     } else {
                         TimeGraphState timeGraphState = new TimeGraphState(startTime, duration, s);
-                        addToEventList(eventList, timeGraphState, key, predicate, removeUnmatched, startTime);
+                        addToEventList(eventList, timeGraphState, key, predicates, removeUnmatched, startTime);
                     }
                 } else {
                     TimeGraphState timeGraphState = new TimeGraphState(startTime, duration, Integer.MIN_VALUE);
-                    addToEventList(eventList, timeGraphState, key, predicate, removeUnmatched, startTime);
+                    addToEventList(eventList, timeGraphState, key, predicates, removeUnmatched, startTime);
                 }
             }
             rows.add(new TimeGraphRowModel(key, eventList));
@@ -318,20 +316,9 @@ public class ResourcesStatusDataProvider extends AbstractTimeGraphDataProvider<@
         return rows;
     }
 
-    private void addToEventList(List<ITimeGraphState> eventList, ITimeGraphState timeGraphState, Long key, BiPredicate<IItem, Function<IItem, Map<String, String>>> predicate, boolean removeUnmatched, long startTime) {
-        setMatchedStatus(predicate, timeGraphState, startTime, key);
-        if (!timeGraphState.isNotCool() || !removeUnmatched) {
-            eventList.add(timeGraphState);
-        }
-    }
-
-    private void setMatchedStatus(BiPredicate<IItem, Function<IItem, Map<String, String>>> predicate, ITimeGraphState timegraphState, long startTime, Long id) {
-        if (predicate != null) {
-            SelectionTimeQueryFilter filter = new SelectionTimeQueryFilter(Collections.singletonList(startTime), Collections.singleton(Objects.requireNonNull(id)));
-            TmfModelResponse<Map<String, String>> response = fetchTooltip(filter, null);
-            Map<String, String> model = response.getModel();
-            timegraphState.setNotCool(!predicate.test(timegraphState, state -> model));
-        }
+    private void addToEventList(@NonNull List<@NonNull ITimeGraphState> eventList, @NonNull ITimeGraphState timegraphState, @NonNull Long key, @NonNull Map<@NonNull String, @NonNull BiPredicate<@NonNull IItem, @NonNull Function<@NonNull IItem, @NonNull Map<@NonNull String, @NonNull String>>>> predicates, boolean removeUnmatched, long startTime) {
+        doFilter(predicates, timegraphState, startTime, key);
+        removeUnmatched(eventList, removeUnmatched, timegraphState);
     }
     /**
      * Add the quarks for the thread status attribute, for all the CPU quarks in

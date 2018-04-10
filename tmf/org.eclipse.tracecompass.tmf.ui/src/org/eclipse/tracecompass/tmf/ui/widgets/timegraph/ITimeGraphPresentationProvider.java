@@ -258,7 +258,7 @@ public interface ITimeGraphPresentationProvider {
      *         the unmatched time events would not be drawn at all.
      * @since 3.4
      */
-    default boolean isHideNotCool() {
+    default boolean removeUnmatched() {
         return false;
     }
 }

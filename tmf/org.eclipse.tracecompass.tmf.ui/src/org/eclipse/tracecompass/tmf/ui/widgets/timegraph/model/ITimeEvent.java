@@ -75,30 +75,6 @@ public interface ITimeEvent extends IItem {
     ITimeEvent splitAfter(long splitTime);
 
     /**
-     * Tells whether the time event does not match the time event filter.
-     *
-     * @return True if the time event does not match the time event filter, false
-     *         otherwise
-     * @since 3.4
-     *
-     */
-    @Override
-    default boolean isNotCool() {
-        return false;
-    }
-
-    /**
-     * Set whether the time event does not match the time event filter.
-     *
-     * @param isNotCool
-     *            The matched status of the time event
-     * @since 3.4
-     */
-    @Override
-    default void setNotCool(boolean isNotCool) {
-    }
-
-    /**
      * @since 3.4
      */
     @Override

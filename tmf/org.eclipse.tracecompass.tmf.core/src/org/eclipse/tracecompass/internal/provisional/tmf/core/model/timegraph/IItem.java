@@ -11,6 +11,8 @@ package org.eclipse.tracecompass.internal.provisional.tmf.core.model.timegraph;
 import java.util.Collections;
 import java.util.Map;
 
+import org.eclipse.jdt.annotation.NonNull;
+
 /**
  * Interface to get information from an item
  *
@@ -18,22 +20,49 @@ import java.util.Map;
  *
  */
 public interface IItem {
+
     /**
-     * Tells whether the item is annotated or not.
+     * Activate/deactivate a property. The possible properties could be found in
+     * {@link IItemProperties}
      *
-     * @return True if the item is annotated, false otherwise
+     * @param key
+     *            the property key
+     * @param activate
+     *            the activation status of the property
      */
-    default boolean isNotCool() {
-        return false;
+    default void activateProperty(String key, boolean activate) {
+        throw new UnsupportedOperationException("Not supported"); //$NON-NLS-1$
     }
 
     /**
-     * Set annotated state of the item.
+     * Get the activation status of a specific property. The possible properties
+     * could be found in {@link IItemProperties}
      *
-     * @param isNotCool
-     *            The annotated status of the item
+     * @param property
+     *            The property key
+     * @return The property activation status
      */
-    default void setNotCool(boolean isNotCool) {
+    default boolean isPropertyActive(String property) {
+        throw new UnsupportedOperationException("Not supported"); //$NON-NLS-1$
+    }
+
+    /**
+     * Set item properties
+     *
+     * @param properties
+     *            The properties to set
+     */
+    default void setProperties(Map<String, Boolean> properties) {
+        throw new UnsupportedOperationException("Not supported"); //$NON-NLS-1$
+    }
+
+    /**
+     * Get all the item properties
+     *
+     * @return The properties
+     */
+    default Map<@NonNull String, @NonNull Boolean> getProperties() {
+        throw new UnsupportedOperationException("Not supported"); //$NON-NLS-1$
     }
 
     /**

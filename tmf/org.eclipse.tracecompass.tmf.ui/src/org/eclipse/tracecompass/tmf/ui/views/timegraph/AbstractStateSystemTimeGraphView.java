@@ -34,6 +34,7 @@ import org.eclipse.tracecompass.common.core.log.TraceCompassLog;
 import org.eclipse.tracecompass.common.core.log.TraceCompassLogUtils;
 import org.eclipse.tracecompass.internal.provisional.tmf.core.model.filter.parser.FilterCu;
 import org.eclipse.tracecompass.internal.provisional.tmf.core.model.timegraph.IItem;
+import org.eclipse.tracecompass.internal.provisional.tmf.core.model.timegraph.IItemProperties;
 import org.eclipse.tracecompass.statesystem.core.ITmfStateSystem;
 import org.eclipse.tracecompass.statesystem.core.exceptions.StateSystemDisposedException;
 import org.eclipse.tracecompass.statesystem.core.interval.ITmfStateInterval;
@@ -182,7 +183,7 @@ public abstract class AbstractStateSystemTimeGraphView extends AbstractTimeGraph
         private void zoom(@NonNull TimeGraphEntry entry, ITmfStateSystem ss, @NonNull List<List<ITmfStateInterval>> fullStates, @Nullable List<ITmfStateInterval> prevFullState, @NonNull IProgressMonitor monitor) {
             List<ITimeEvent> eventList = getEventList(entry, ss, fullStates, prevFullState, monitor);
 
-            String regex = getRegex();
+            String regex = getFilterDialogRegex();
             BiPredicate<IItem, Function<IItem, Map<String, String>>> tmpPredicate = null;
             if (!regex.isEmpty()) {
                 FilterCu cu = FilterCu.compile(regex);
@@ -193,15 +194,16 @@ public abstract class AbstractStateSystemTimeGraphView extends AbstractTimeGraph
 
                 if (predicate != null) {
                     eventList.forEach(te -> {
-                        te.setNotCool(!predicate.test(te, event -> getPresentationProvider().getEventHoverToolTipInfo((ITimeEvent)event, ((ITimeEvent) event).getTime())));
+                        boolean succeed = predicate.test(te, event -> getPresentationProvider().getEventHoverToolTipInfo((ITimeEvent)event, ((ITimeEvent) event).getTime()));
+                        te.activateProperty(IItemProperties.fullAlpha(), !succeed);
                     });
                 }
                 Collection<ITimeEvent> filtered = new ArrayList<>();
                 ITimeGraphPresentationProvider timeGraphProvider = getTimeGraphViewer().getTimeGraphProvider();
-                if (timeGraphProvider instanceof TimeGraphPresentationProvider && ((TimeGraphPresentationProvider) timeGraphProvider).isHideNotCool()
+                if (timeGraphProvider instanceof TimeGraphPresentationProvider && ((TimeGraphPresentationProvider) timeGraphProvider).removeUnmatched()
                         && entry.hasTimeEvents()) {
                     eventList.forEach(event -> {
-                        if (!event.isNotCool()) {
+                        if (!event.isPropertyActive(IItemProperties.fullAlpha())) {
                             filtered.add(event);
                         }
                     });

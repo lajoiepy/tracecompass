@@ -11,6 +11,8 @@ package org.eclipse.tracecompass.internal.provisional.tmf.core.model.filters;
 import java.util.Collection;
 import java.util.List;
 
+import com.google.common.collect.Multimap;
+
 /**
  * Standardized query filter to query XY data providers for a Collection of
  * entries and filter the data using the given regex.
@@ -20,7 +22,7 @@ import java.util.List;
  */
 public class TimegraphStateQueryFilter extends SelectionTimeQueryFilter {
 
-    private String fRegex;
+    private Multimap<String, String> fRegex;
     private boolean fRemoveUnmatched;
 
     /**
@@ -30,12 +32,12 @@ public class TimegraphStateQueryFilter extends SelectionTimeQueryFilter {
      *            sorted list of times to query.
      * @param items
      *            The unique keys of the selected entries.
-     * @param regex
-     *            The regex use to filter the queried data
      * @param removeUnmatched
      *            Tells whether unmatched items should be rerurned or not
+     * @param regex
+     *            The regex use to filter the queried data
      */
-    public TimegraphStateQueryFilter(List<Long> times, Collection<Long> items, String regex, boolean removeUnmatched) {
+    public TimegraphStateQueryFilter(List<Long> times, Collection<Long> items, boolean removeUnmatched, Multimap<String, String> regex) {
         super(times, items);
         fRegex = regex;
         fRemoveUnmatched = removeUnmatched;
@@ -57,7 +59,7 @@ public class TimegraphStateQueryFilter extends SelectionTimeQueryFilter {
      * @param removeUnmatched
      *            Tells whether unmatched items should be rerurned or not
      */
-    public TimegraphStateQueryFilter(long start, long end, int n, Collection<Long> items, String regex, boolean removeUnmatched) {
+    public TimegraphStateQueryFilter(long start, long end, int n, Collection<Long> items, Multimap<String, String> regex, boolean removeUnmatched) {
         super(start, end, n, items);
         fRegex = regex;
         fRemoveUnmatched = removeUnmatched;
@@ -68,7 +70,7 @@ public class TimegraphStateQueryFilter extends SelectionTimeQueryFilter {
      *
      * @return The regex
      */
-    public String getRegex() {
+    public Multimap<String, String> getRegex() {
         return fRegex;
     }
 

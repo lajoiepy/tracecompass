@@ -2377,9 +2377,16 @@ public class TimeGraphControl extends TimeGraphBaseControl
                 stateColor = Display.getDefault().getSystemColor(SWT.COLOR_BLACK);
             }
 
-            gc.setForeground(stateColor);
-            gc.setBackground(stateColor);
             int old = gc.getLineWidth();
+            int borderColorInt = (int) styleMap.getOrDefault(ITimeEventStyleStrings.borderColor(), 0);
+            if ((borderColorInt & 0xff) == 0xff) {
+                Color borderColor = getColorFromRegistry(borderColorInt);
+                gc.setForeground(borderColor);
+                gc.setBackground(borderColor);
+            } else {
+                gc.setForeground(stateColor);
+                gc.setBackground(stateColor);
+            }
             float heightFactor = (float) styleMap.getOrDefault(ITimeEventStyleStrings.heightFactor(), 0.1f);
             if (heightFactor > 1.0 || heightFactor < 0) {
                 heightFactor = 0.1f;
@@ -2600,13 +2607,7 @@ public class TimeGraphControl extends TimeGraphBaseControl
         Color stateColor = null;
         int fillColor = (int) styleMap.getOrDefault(ITimeEventStyleStrings.fillColor(), 255);
         if (fillColor >> 8 != 0) {
-            String hexRGB = Integer.toHexString(fillColor);
-            stateColor = COLOR_REGISTRY.get(hexRGB);
-            if (stateColor == null) {
-                COLOR_REGISTRY.put(hexRGB, RGBAUtil.fromInt(fillColor).rgb);
-                stateColor = COLOR_REGISTRY.get(hexRGB);
-            }
-
+            stateColor = getColorFromRegistry(fillColor);
         } else {
             if (colorIdx < fEventColorMap.length) {
                 stateColor = fEventColorMap[colorIdx];
@@ -2630,6 +2631,23 @@ public class TimeGraphControl extends TimeGraphBaseControl
             gc.setAlpha(255);
         }
 
+        int borderColorInt = (int) styleMap.getOrDefault(ITimeEventStyleStrings.borderColor(), 0);
+        if ((borderColorInt & 0xff) == 0xff) {
+            Color oldForeground = gc.getForeground();
+            Color oldBackground = gc.getBackground();
+            int oldLineWidth = gc.getLineWidth();
+            Color borderColor = getColorFromRegistry(borderColorInt);
+            gc.setForeground(borderColor);
+            gc.setBackground(borderColor);
+            gc.setLineWidth(2);
+            gc.drawLine(drawRect.x, drawRect.y - 1, drawRect.x + drawRect.width - 1, drawRect.y - 1);
+            gc.drawLine(drawRect.x, drawRect.y + drawRect.height, drawRect.x + drawRect.width - 1, drawRect.y + drawRect.height);
+            gc.drawLine(drawRect.x, drawRect.y - 1, drawRect.x, drawRect.y + drawRect.height);
+            gc.drawLine(drawRect.x + drawRect.width - 1, drawRect.y - 1, drawRect.x + drawRect.width - 1, drawRect.y + drawRect.height);
+            gc.setForeground(oldForeground);
+            gc.setBackground(oldBackground);
+            gc.setLineWidth(oldLineWidth);
+        }
         if (reallySelected) {
             gc.drawLine(drawRect.x, drawRect.y - 1, drawRect.x + drawRect.width - 1, drawRect.y - 1);
             gc.drawLine(drawRect.x, drawRect.y + drawRect.height, drawRect.x + drawRect.width - 1, drawRect.y + drawRect.height);
@@ -2641,6 +2659,17 @@ public class TimeGraphControl extends TimeGraphBaseControl
             fTimeGraphProvider.postDrawEvent(event, drawRect, gc);
         }
         return visible;
+    }
+
+    private static Color getColorFromRegistry(int colorInt) {
+        Color color;
+        String hexRGB = Integer.toHexString(colorInt);
+        color = COLOR_REGISTRY.get(hexRGB);
+        if (color == null) {
+            COLOR_REGISTRY.put(hexRGB, RGBAUtil.fromInt(colorInt).rgb);
+            color = COLOR_REGISTRY.get(hexRGB);
+        }
+        return color;
     }
 
     /**
@@ -3666,7 +3695,7 @@ public class TimeGraphControl extends TimeGraphBaseControl
                 refreshExpanded(expandedItemList, item);
             }
 
-            if (fTimeGraphProvider.isHideNotCool()) {
+            if (fTimeGraphProvider.removeUnmatched()) {
                 filterData(expandedItemList);
             }
 

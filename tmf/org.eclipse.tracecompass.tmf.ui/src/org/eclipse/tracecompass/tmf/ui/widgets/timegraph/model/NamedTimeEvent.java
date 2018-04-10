@@ -9,6 +9,7 @@
 
 package org.eclipse.tracecompass.tmf.ui.widgets.timegraph.model;
 
+import java.util.Map;
 import java.util.Objects;
 
 import org.eclipse.jdt.annotation.NonNull;
@@ -46,21 +47,21 @@ public class NamedTimeEvent extends TimeEvent {
      * Constructor
      *
      * @param entry
-     *            The entry to which this time event is assigned
+     *                       The entry to which this time event is assigned
      * @param time
-     *            The timestamp of this event
+     *                       The timestamp of this event
      * @param duration
-     *            The duration of this event
+     *                       The duration of this event
      * @param value
-     *            The status assigned to the event
+     *                       The status assigned to the event
      * @param label
-     *            This event's label
-     * @param notCool
-     *            The annotated status of the event
+     *                       This event's label
+     * @param properties
+     *                       The map of item properties status
      * @since 3.4
      */
-    public NamedTimeEvent(TimeGraphEntry entry, long time, long duration, int value, String label, boolean notCool) {
-        super(entry, time, duration, value, notCool);
+    public NamedTimeEvent(TimeGraphEntry entry, long time, long duration, int value, String label, @NonNull Map<@NonNull String, @NonNull Boolean> properties) {
+        super(entry, time, duration, value, properties);
         fLabel = label.intern();
     }
 

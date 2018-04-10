@@ -106,6 +106,7 @@ import org.eclipse.tracecompass.common.core.log.TraceCompassLogUtils.FlowScopeLo
 import org.eclipse.tracecompass.common.core.log.TraceCompassLogUtils.FlowScopeLogBuilder;
 import org.eclipse.tracecompass.internal.provisional.tmf.core.model.filter.parser.FilterCu;
 import org.eclipse.tracecompass.internal.provisional.tmf.core.model.timegraph.IItem;
+import org.eclipse.tracecompass.internal.provisional.tmf.core.model.timegraph.IItemProperties;
 import org.eclipse.tracecompass.internal.tmf.core.markers.MarkerConfigXmlParser;
 import org.eclipse.tracecompass.internal.tmf.core.markers.MarkerSet;
 import org.eclipse.tracecompass.internal.tmf.ui.Activator;
@@ -173,8 +174,11 @@ import org.eclipse.ui.handlers.IHandlerService;
 import org.eclipse.ui.ide.IDE;
 import org.eclipse.ui.progress.IWorkbenchSiteProgressService;
 
+import com.google.common.base.Joiner;
+import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Multimap;
 
 /**
  * An abstract view all time graph views can inherit
@@ -324,6 +328,7 @@ public abstract class AbstractTimeGraphView extends TmfView implements ITmfTimeA
      * used on the name space of the time graph viewer.
      */
     private final @NonNull MenuManager fEntryMenuManager = new MenuManager();
+    private final @NonNull MenuManager fEventMenuManager = new MenuManager();
 
     /** Time Graph View part listener */
     private TimeGraphPartListener fPartListener;
@@ -587,7 +592,7 @@ public abstract class AbstractTimeGraphView extends TmfView implements ITmfTimeA
                     // Fall back on the full event list
                     applyResults(() -> fEntries.forEach(entry -> entry.setZoomedEventList(null)));
                 } else {
-                    Iterable<@NonNull TimeGraphEntry> incorrectSample = Iterables.filter(fEntries, entry -> !getRegex().isEmpty() || !sampling.equals(entry.getSampling()));
+                    Iterable<@NonNull TimeGraphEntry> incorrectSample = Iterables.filter(fEntries, entry -> !getFilterDialogRegex().isEmpty() || !sampling.equals(entry.getSampling()));
                     zoomEntries(incorrectSample, getZoomStartTime(), getZoomEndTime(), getResolution(), getMonitor());
                 }
             }
@@ -637,30 +642,29 @@ public abstract class AbstractTimeGraphView extends TmfView implements ITmfTimeA
     protected void zoomEntries(@NonNull Iterable<@NonNull TimeGraphEntry> entries,
             long zoomStartTime, long zoomEndTime, long resolution, @NonNull IProgressMonitor monitor) {
 
-        String regex = getRegex();
-        BiPredicate<IItem, Function<IItem, Map<String, String>>> tmpPredicate = null;
-        if (!regex.isEmpty()) {
-            FilterCu cu = FilterCu.compile(regex);
-            tmpPredicate = cu != null ? cu.generate() : tmpPredicate;
-        }
-        BiPredicate<IItem, Function<IItem, Map<String, String>>> predicate = tmpPredicate;
+            boolean removeUnmatched = getPresentationProvider().removeUnmatched();
+            Map<String, BiPredicate<IItem, Function<IItem, Map<String, String>>>> predicates = buildPredicates(getRegexes());
+
         for (TimeGraphEntry entry : entries) {
             List<ITimeEvent> zoomedEventList = getEventList(entry, zoomStartTime, zoomEndTime, resolution, monitor);
             if (monitor.isCanceled()) {
                 return;
             }
             if (zoomedEventList != null) {
-                if (predicate != null) {
+                if (!predicates.isEmpty()) {
                     zoomedEventList.forEach(te -> {
-                        te.setNotCool(!predicate.test(te, event -> getPresentationProvider().getEventHoverToolTipInfo(((ITimeEvent) event), ((ITimeEvent) event).getTime())));
+                        for (Map.Entry<String, BiPredicate<IItem, Function<IItem, Map<String, String>>>> predicate : predicates.entrySet()) {
+                            boolean test = predicate.getValue().test(te, event -> getPresentationProvider().getEventHoverToolTipInfo(((ITimeEvent) event), ((ITimeEvent) event).getTime()));
+                            te.activateProperty(predicate.getKey(), test);
+                        }
                     });
                 }
                 Collection<ITimeEvent> filtered = new ArrayList<>();
                 ITimeGraphPresentationProvider timeGraphProvider = fTimeGraphViewer.getTimeGraphProvider();
-                if (timeGraphProvider instanceof TimeGraphPresentationProvider && ((TimeGraphPresentationProvider) timeGraphProvider).isHideNotCool()
+                if (timeGraphProvider instanceof TimeGraphPresentationProvider && removeUnmatched
                         && entry.hasTimeEvents()) {
                     zoomedEventList.forEach(event -> {
-                        if (!event.isNotCool()) {
+                        if (event.isPropertyActive(IItemProperties.fullAlpha())) {
                             filtered.add(event);
                         }
                     });
@@ -671,6 +675,21 @@ public abstract class AbstractTimeGraphView extends TmfView implements ITmfTimeA
             }
         }
         redraw();
+    }
+
+    private static Map<String, BiPredicate<IItem, Function<IItem, Map<String, String>>>> buildPredicates(@NonNull Multimap<@NonNull String, @NonNull String> regexes) {
+        Map<String, BiPredicate<IItem, Function<IItem, Map<String, String>>>> predicates = new HashMap<>();
+        for (Map.Entry<String, Collection<String>> entry : regexes.asMap().entrySet()) {
+            String property = entry.getKey();
+            String regex = Joiner.on("||").skipNulls().join(entry.getValue()); //$NON-NLS-1$
+            FilterCu cu = FilterCu.compile(regex);
+            BiPredicate<IItem, Function<IItem, Map<String, String>>> predicate = cu != null ? cu.generate() : null;
+            if (predicate != null) {
+                predicates.put(property, predicate);
+            }
+        }
+        return predicates;
+
     }
 
     // ------------------------------------------------------------------------
@@ -2385,9 +2404,13 @@ public abstract class AbstractTimeGraphView extends TmfView implements ITmfTimeA
     }
 
     private void createContextMenu() {
-        fEntryMenuManager.setRemoveAllWhenShown(true);
         TimeGraphControl timeGraphControl = getTimeGraphViewer().getTimeGraphControl();
+        fEntryMenuManager.setRemoveAllWhenShown(true);
         final Menu entryMenu = fEntryMenuManager.createContextMenu(timeGraphControl);
+
+        fEventMenuManager.setRemoveAllWhenShown(true);
+        final Menu eventMenu = fEventMenuManager.createContextMenu(timeGraphControl);
+
         timeGraphControl.addTimeGraphEntryMenuListener(new MenuDetectListener() {
             @Override
             public void menuDetected(MenuDetectEvent event) {
@@ -2400,8 +2423,7 @@ public abstract class AbstractTimeGraphView extends TmfView implements ITmfTimeA
                 if (p.x < getTimeGraphViewer().getNameSpace()) {
                     timeGraphControl.setMenu(entryMenu);
                 } else {
-                    timeGraphControl.setMenu(null);
-                    event.doit = false;
+                    timeGraphControl.setMenu(eventMenu);
                 }
             }
         });
@@ -2412,7 +2434,16 @@ public abstract class AbstractTimeGraphView extends TmfView implements ITmfTimeA
                 fEntryMenuManager.add(new GroupMarker(IWorkbenchActionConstants.MB_ADDITIONS));
             }
         });
-        getSite().registerContextMenu(fEntryMenuManager, fTimeGraphViewer.getSelectionProvider());
+        getSite().registerContextMenu("entry", fEntryMenuManager, fTimeGraphViewer.getSelectionProvider());
+
+        fEventMenuManager.addMenuListener(new IMenuListener() {
+            @Override
+            public void menuAboutToShow(IMenuManager manager) {
+                fillTimeEventContextMenu(fEventMenuManager);
+                fEventMenuManager.add(new GroupMarker(IWorkbenchActionConstants.MB_ADDITIONS));
+            }
+        });
+        getSite().registerContextMenu("event", fEventMenuManager, fTimeGraphViewer.getSelectionProvider());
     }
 
     private Point getFilterBounds(Rectangle bounds) {
@@ -2425,18 +2456,57 @@ public abstract class AbstractTimeGraphView extends TmfView implements ITmfTimeA
      * @return The time event filter regex
      * @since 3.4
      */
-    protected @NonNull String getRegex() {
+    protected @NonNull String getFilterDialogRegex() {
         return NonNullUtils.nullToEmptyString(fRegex);
     }
 
     /**
-     * Fill context menu
+     * This method build the multimap of regexes by property that will be used to
+     * filter the timegraph states
+     *
+     * Override this method to add other regexes with their properties. The data
+     * provider should handle everything after.
+     *
+     * @return The multimap of regexes by property
+     * @since 3.4
+     */
+    protected @NonNull Multimap<@NonNull String, @NonNull String> getRegexes() {
+        Multimap<@NonNull String, @NonNull String> regexes = HashMultimap.create();
+
+        String dialogRegex = getFilterDialogRegex();
+        regexes.put(IItemProperties.fullAlpha(), dialogRegex);
+
+        return regexes;
+    }
+
+    /**
+     * Fill context menu for timegraph entries
      *
      * @param menuManager
      *            a menuManager to fill
      * @since 2.0
      */
     protected void fillTimeGraphEntryContextMenu(@NonNull IMenuManager menuManager) {
+    }
+
+    /**
+     * Fill context menu for time events
+     *
+     * @param menuManager
+     *            a menuManager to fill
+     * @since 3.4
+     */
+    protected void fillTimeEventContextMenu(@NonNull IMenuManager menuManager) {
+    }
+
+    private void reStartZoomThread() {
+        ZoomThread zoomThread = fZoomThread;
+        if (zoomThread != null) {
+            // Make sure that the zoom thread is not a restart (resume of the previous)
+            zoomThread.cancel();
+            fZoomThread = null;
+        }
+        startZoomThread(getTimeGraphViewer().getTime0(), getTimeGraphViewer().getTime1());
     }
 
     /*
@@ -2550,7 +2620,7 @@ public abstract class AbstractTimeGraphView extends TmfView implements ITmfTimeA
             IWorkbenchPart part = partRef.getPart(false);
             if (part != null && part == AbstractTimeGraphView.this) {
                 Display.getDefault().asyncExec(() -> {
-                    if (fTimeEventFilterDialog != null && !getRegex().isEmpty()) {
+                    if (fTimeEventFilterDialog != null && !getFilterDialogRegex().isEmpty()) {
                         fTimeEventFilterDialog.open();
                     }
                 });
@@ -2587,13 +2657,7 @@ public abstract class AbstractTimeGraphView extends TmfView implements ITmfTimeA
                 fRegex = filterText.getText();
                 fTimeGraphViewer.setHideEntries(false);
                 fTimeGraphViewer.setTimeEventFilterApplied(fRegex != null && !fRegex.isEmpty());
-                ZoomThread zoomThread = fZoomThread;
-                if (zoomThread != null) {
-                    // Make sure that the zoom thread is not a restart (resume of the previous)
-                    zoomThread.cancel();
-                    fZoomThread = null;
-                }
-                startZoomThread(getTimeGraphViewer().getTime0(), getTimeGraphViewer().getTime1());
+                reStartZoomThread();
             });
 
             filterText.addKeyListener(new KeyListener() {
@@ -2609,18 +2673,12 @@ public abstract class AbstractTimeGraphView extends TmfView implements ITmfTimeA
                     if ((e.keyCode ^ SWT.CR) == 0) {
                         fRegex = filterText.getText();
                         if (!fRegex.isEmpty()) {
-                            //highlight to differeciate from the normal filter
+                            // highlight to differeciate from the normal filter
                             filterText.setBackground(Display.getDefault().getSystemColor(SWT.COLOR_GRAY));
                         }
                         fTimeGraphViewer.setHideEntries(true);
                         fTimeGraphViewer.setTimeEventFilterApplied(fRegex != null && !fRegex.isEmpty());
-                        ZoomThread zoomThread = fZoomThread;
-                        if (zoomThread != null) {
-                            // Make sure that the zoom thread is not a restart (resume of the previous)
-                            zoomThread.cancel();
-                            fZoomThread = null;
-                        }
-                        startZoomThread(getTimeGraphViewer().getTime0(), getTimeGraphViewer().getTime1());
+                        reStartZoomThread();
                     }
                 }
             });

@@ -27,7 +27,7 @@ public abstract class AbstractTmfTraceDataProvider {
      * Constructor
      *
      * @param trace
-     *            A trace that will be used to perform analysis
+     *                  A trace that will be used to perform analysis
      */
     public AbstractTmfTraceDataProvider(ITmfTrace trace) {
         fTrace = trace;

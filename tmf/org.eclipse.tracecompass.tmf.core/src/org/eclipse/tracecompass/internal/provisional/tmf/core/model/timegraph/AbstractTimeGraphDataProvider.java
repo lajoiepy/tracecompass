@@ -86,6 +86,42 @@ public abstract class AbstractTimeGraphDataProvider<A extends TmfStateSystemAnal
         }
     }
 
+
+//    private @Nullable List<ITimeGraphRowModel> filteredRowModel(ITmfStateSystem ss,
+//            SelectionTimeQueryFilter filter, @Nullable IProgressMonitor monitor) throws StateSystemDisposedException {
+//
+//        List<ITimeGraphRowModel> models = getRowModel(ss, filter, monitor);
+//
+//        if (models == null) {
+//            return models;
+//        }
+//
+//        String filterString = ""; //$NON-NLS-1$
+//        boolean removeUnmatched = false;
+//        if (filter instanceof TimegraphStateQueryFilter) {
+//            TimegraphStateQueryFilter timeEventFilter = (TimegraphStateQueryFilter) filter;
+//            filterString = timeEventFilter.getRegex();
+//            removeUnmatched = timeEventFilter.removeUnmatched();
+//        }
+//        FilterCu cu = FilterCu.compile(filterString);
+//        BiPredicate<IItem, Function<IItem, Map<String, String>>> predicate = cu != null ? cu.generate() : null;
+//
+//        if (predicate == null) {
+//            return models;
+//        }
+//
+//        List<ITimeGraphRowModel> filteredModels = new ArrayList<>();
+//
+//        for (ITimeGraphRowModel model : models) {
+//            List<ITimeGraphState> states = model.getStates();
+//            List<ITimeGraphState> filteredStates = new ArrayList<>();
+//            states.forEach(s -> {
+//                if (predicate.test(state, arg1))
+//            });
+//        }
+//
+//        return filteredModels;
+//    }
     /**
      * Abstract method to be implemented by the providers to return rows. Lets the
      * abstract class handle waiting for {@link ITmfStateSystem} initialization and

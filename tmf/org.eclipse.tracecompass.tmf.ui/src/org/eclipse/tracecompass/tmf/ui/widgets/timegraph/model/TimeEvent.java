@@ -13,7 +13,12 @@
 
 package org.eclipse.tracecompass.tmf.ui.widgets.timegraph.model;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Objects;
+
+import org.eclipse.jdt.annotation.NonNull;
+import org.eclipse.tracecompass.internal.provisional.tmf.core.model.timegraph.IItemProperties;
 
 /**
  * Generic TimeEvent implementation
@@ -34,7 +39,10 @@ public class TimeEvent implements ITimeEvent {
 
     private final int fValue;
 
-    private boolean fNotCool = false;
+    /**
+     * A map of properties to activate or deactivate
+     */
+    Map<@NonNull String, @NonNull Boolean> ACTIVE_PROPERTIES = new HashMap<>();
 
     /**
      * Default value when no other value present
@@ -64,12 +72,12 @@ public class TimeEvent implements ITimeEvent {
      *            The timestamp of this event
      * @param duration
      *            The duration of the event
-     * @param notCool
-     *            The annotated status of this event
+     * @param properties
+     *            The map of properties status
      * @since 3.4
      */
-    public TimeEvent(ITimeGraphEntry entry, long time, long duration, boolean notCool) {
-        this(entry, time, duration, NOVALUE, notCool);
+    public TimeEvent(ITimeGraphEntry entry, long time, long duration, @NonNull Map<@NonNull String, @NonNull Boolean> properties) {
+        this(entry, time, duration, NOVALUE, properties);
 
     }
 
@@ -104,16 +112,16 @@ public class TimeEvent implements ITimeEvent {
      *            The duration of this event
      * @param value
      *            The status assigned to the event
-     * @param notCool
-     *            The annotated status of the event
+     * @param properties
+     *            The time event properties
      * @since 3.4
      */
-    public TimeEvent(ITimeGraphEntry entry, long time, long duration, int value, boolean notCool) {
+    public TimeEvent(ITimeGraphEntry entry, long time, long duration, int value, @NonNull Map<@NonNull String, @NonNull Boolean> properties) {
         fEntry = entry;
         fTime = time;
         fDuration = duration;
         fValue = value;
-        fNotCool = notCool;
+        setProperties(properties);
     }
 
     /**
@@ -149,6 +157,41 @@ public class TimeEvent implements ITimeEvent {
         return fDuration;
     }
 
+    /**
+     * @since 3.4
+     */
+    @Override
+    public void activateProperty(String key, boolean activate) {
+        ACTIVE_PROPERTIES.put(key, activate);
+    }
+
+    /**
+     * @since 3.4
+     */
+    @Override
+    public boolean isPropertyActive(String property) {
+        if (property.equals(IItemProperties.fullAlpha())) {
+            return ACTIVE_PROPERTIES.getOrDefault(property, true);
+        }
+        return ACTIVE_PROPERTIES.getOrDefault(property, false);
+    }
+
+    /**
+     * @since 3.4
+     */
+    @Override
+    public void setProperties(@NonNull Map<@NonNull String, @NonNull Boolean> properties) {
+        ACTIVE_PROPERTIES.putAll(properties);
+    }
+
+    /**
+     * @since 3.4
+     */
+    @Override
+    public Map<@NonNull String, @NonNull Boolean> getProperties() {
+        return new HashMap<>(ACTIVE_PROPERTIES);
+    }
+
     @Override
     public ITimeEvent splitBefore(long splitTime) {
         return (splitTime > fTime ?
@@ -162,16 +205,6 @@ public class TimeEvent implements ITimeEvent {
                 new TimeEvent(fEntry, Math.max(fTime, splitTime), fDuration - Math.max(0, splitTime - fTime),
                         fValue) :
                 null);
-    }
-
-    @Override
-    public void setNotCool(boolean isNotCool) {
-        fNotCool = isNotCool;
-    }
-
-    @Override
-    public boolean isNotCool() {
-        return fNotCool;
     }
 
     @Override

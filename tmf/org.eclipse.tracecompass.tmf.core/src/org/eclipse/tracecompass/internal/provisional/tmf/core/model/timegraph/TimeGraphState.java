@@ -12,6 +12,7 @@ package org.eclipse.tracecompass.internal.provisional.tmf.core.model.timegraph;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.eclipse.jdt.annotation.NonNull;
 import org.eclipse.jdt.annotation.Nullable;
 
 /**
@@ -24,7 +25,10 @@ public class TimeGraphState implements ITimeGraphState {
     private final long fDuration;
     private final long fValue;
     private final @Nullable String fLabel;
-    private boolean fNotCool = false;
+    /**
+     * A map of properties to activate or deactivate
+     */
+    Map<String, Boolean> ACTIVE_PROPERTIES = new HashMap<>();
 
     /**
      * Constructor
@@ -83,16 +87,6 @@ public class TimeGraphState implements ITimeGraphState {
     }
 
     @Override
-    public void setNotCool(boolean isNotCool) {
-        fNotCool = isNotCool;
-    }
-
-    @Override
-    public boolean isNotCool() {
-        return fNotCool;
-    }
-
-    @Override
     public Map<String, String> fetchSpecificData() {
       Map<String, String> toTest = new HashMap<>();
       String label = getLabel();
@@ -100,5 +94,28 @@ public class TimeGraphState implements ITimeGraphState {
           toTest.put("label", label); //$NON-NLS-1$
       }
       return toTest;
+    }
+
+    @Override
+    public void activateProperty(String key, boolean activate) {
+        ACTIVE_PROPERTIES.put(key, activate);
+    }
+
+    @Override
+    public boolean isPropertyActive(String property) {
+        if (property.equals(IItemProperties.fullAlpha())) {
+            return ACTIVE_PROPERTIES.getOrDefault(property, true);
+        }
+        return ACTIVE_PROPERTIES.getOrDefault(property, false);
+    }
+
+    @Override
+    public void setProperties(@NonNull Map<@NonNull String, @NonNull Boolean> properties) {
+        ACTIVE_PROPERTIES.putAll(properties);
+    }
+
+    @Override
+    public Map<@NonNull String, @NonNull Boolean> getProperties() {
+        return new HashMap<>(ACTIVE_PROPERTIES);
     }
 }

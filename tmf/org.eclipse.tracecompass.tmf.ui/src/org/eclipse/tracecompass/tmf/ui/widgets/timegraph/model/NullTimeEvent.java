@@ -12,6 +12,10 @@
 
 package org.eclipse.tracecompass.tmf.ui.widgets.timegraph.model;
 
+import java.util.Map;
+
+import org.eclipse.jdt.annotation.NonNull;
+
 /**
  * A null time event. Used to represent an event that should not be drawn,
  * for example as a zoomed event that overshadows an underlying event.
@@ -45,8 +49,8 @@ public class NullTimeEvent extends TimeEvent {
      *            The annotated status of the event
      * @since 3.4
      */
-    public NullTimeEvent(TimeGraphEntry entry, long time, long duration, boolean notCool) {
-        super(entry, time, duration, notCool);
+    public NullTimeEvent(TimeGraphEntry entry, long time, long duration, @NonNull Map<@NonNull String, @NonNull Boolean> properties) {
+        super(entry, time, duration, properties);
     }
 
     @Override

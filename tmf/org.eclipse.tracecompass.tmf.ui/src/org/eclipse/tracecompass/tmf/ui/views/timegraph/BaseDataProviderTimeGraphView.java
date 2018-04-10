@@ -274,7 +274,7 @@ public class BaseDataProviderTimeGraphView extends AbstractTimeGraphView {
         for (Entry<ITimeGraphDataProvider<? extends TimeGraphEntryModel>, Multimap<Long, TimeGraphEntry>> entry : groupedEntries.entrySet()) {
             ITimeGraphDataProvider<? extends TimeGraphEntryModel> dataProvider = entry.getKey();
             Multimap<Long, TimeGraphEntry> map = entry.getValue();
-            TimegraphStateQueryFilter filter = new TimegraphStateQueryFilter(times, map.keySet(), getRegex(), getPresentationProvider().isHideNotCool());
+            TimegraphStateQueryFilter filter = new TimegraphStateQueryFilter(times, map.keySet(), getPresentationProvider().removeUnmatched(), getRegexes());
             TmfModelResponse<List<ITimeGraphRowModel>> response = dataProvider.fetchRowModel(filter, monitor);
 
             List<ITimeGraphRowModel> model = response.getModel();
@@ -377,13 +377,13 @@ public class BaseDataProviderTimeGraphView extends AbstractTimeGraphView {
      */
     protected TimeEvent createTimeEvent(TimeGraphEntry entry, ITimeGraphState state) {
         if (state.getValue() == Integer.MIN_VALUE) {
-            return new NullTimeEvent(entry, state.getStartTime(), state.getDuration(), state.isNotCool());
+            return new NullTimeEvent(entry, state.getStartTime(), state.getDuration(), state.getProperties());
         }
         String label = state.getLabel();
         if (label != null) {
-            return new NamedTimeEvent(entry, state.getStartTime(), state.getDuration(), (int) state.getValue(), label, state.isNotCool());
+            return new NamedTimeEvent(entry, state.getStartTime(), state.getDuration(), (int) state.getValue(), label, state.getProperties());
         }
-        return new TimeEvent(entry, state.getStartTime(), state.getDuration(), (int) state.getValue(), state.isNotCool());
+        return new TimeEvent(entry, state.getStartTime(), state.getDuration(), (int) state.getValue(), state.getProperties());
     }
 
 }
