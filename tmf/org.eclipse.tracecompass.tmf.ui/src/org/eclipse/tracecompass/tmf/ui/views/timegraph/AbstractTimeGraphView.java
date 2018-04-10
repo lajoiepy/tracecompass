@@ -592,7 +592,9 @@ public abstract class AbstractTimeGraphView extends TmfView implements ITmfTimeA
                     // Fall back on the full event list
                     applyResults(() -> fEntries.forEach(entry -> entry.setZoomedEventList(null)));
                 } else {
-                    Iterable<@NonNull TimeGraphEntry> incorrectSample = Iterables.filter(fEntries, entry -> !getFilterDialogRegex().isEmpty() || !sampling.equals(entry.getSampling()));
+                    boolean isFilterActive = Iterables.any(getRegexes().values(), regex -> !regex.isEmpty());
+                    ((TimeGraphPresentationProvider) getPresentationProvider()).setTimegraphFilteringModeStatus(isFilterActive);
+                    Iterable<@NonNull TimeGraphEntry> incorrectSample = Iterables.filter(fEntries, entry -> isFilterActive || !sampling.equals(entry.getSampling()));
                     zoomEntries(incorrectSample, getZoomStartTime(), getZoomEndTime(), getResolution(), getMonitor());
                 }
             }
@@ -2499,7 +2501,11 @@ public abstract class AbstractTimeGraphView extends TmfView implements ITmfTimeA
     protected void fillTimeEventContextMenu(@NonNull IMenuManager menuManager) {
     }
 
-    private void reStartZoomThread() {
+    /**
+     * Cancel and restart the zoom thread
+     * @since 3.4
+     */
+    protected void restartZoomThread() {
         ZoomThread zoomThread = fZoomThread;
         if (zoomThread != null) {
             // Make sure that the zoom thread is not a restart (resume of the previous)
@@ -2656,8 +2662,7 @@ public abstract class AbstractTimeGraphView extends TmfView implements ITmfTimeA
                 filterText.setBackground(baseBackGround);
                 fRegex = filterText.getText();
                 fTimeGraphViewer.setHideEntries(false);
-                fTimeGraphViewer.setTimeEventFilterApplied(fRegex != null && !fRegex.isEmpty());
-                reStartZoomThread();
+                restartZoomThread();
             });
 
             filterText.addKeyListener(new KeyListener() {
@@ -2677,8 +2682,7 @@ public abstract class AbstractTimeGraphView extends TmfView implements ITmfTimeA
                             filterText.setBackground(Display.getDefault().getSystemColor(SWT.COLOR_GRAY));
                         }
                         fTimeGraphViewer.setHideEntries(true);
-                        fTimeGraphViewer.setTimeEventFilterApplied(fRegex != null && !fRegex.isEmpty());
-                        reStartZoomThread();
+                        restartZoomThread();
                     }
                 }
             });
