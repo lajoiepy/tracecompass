@@ -26,6 +26,7 @@ import org.eclipse.tracecompass.tmf.ui.views.TmfView;
 public class UnfollowThreadAction extends Action {
 
     private final TmfView fView;
+    private int fTid = -1;
 
     /**
      * Constructor
@@ -34,8 +35,9 @@ public class UnfollowThreadAction extends Action {
      *            the view that is generating the signal, but also shall broadcast
      *            it
      */
-    public UnfollowThreadAction(TmfView source) {
+    public UnfollowThreadAction(TmfView source, int tid) {
         fView = source;
+        fTid = tid;
     }
 
     @Override
@@ -45,7 +47,7 @@ public class UnfollowThreadAction extends Action {
 
     @Override
     public void run() {
-        fView.broadcast(new TmfThreadSelectedSignal(fView, new HostThread("", -1))); //$NON-NLS-1$
+        fView.broadcast(new TmfThreadSelectedSignal(fView, new HostThread("", fTid))); //$NON-NLS-1$
         super.run();
     }
 

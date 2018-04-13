@@ -13,7 +13,9 @@
 
 package org.eclipse.tracecompass.internal.analysis.os.linux.ui.views.resources;
 
+import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.List;
 import java.util.function.Function;
 
 import org.eclipse.jdt.annotation.NonNull;
@@ -66,6 +68,8 @@ public class ResourcesView extends BaseDataProviderTimeGraphView {
     private static final String[] FILTER_COLUMN_NAMES = new String[] {
             Messages.ResourcesView_stateTypeName
     };
+
+    List<Integer> fTIDs = new ArrayList<>();
 
     /**
      * Resources entry names should all be of type "ABC 123"
@@ -151,13 +155,12 @@ public class ResourcesView extends BaseDataProviderTimeGraphView {
                 if (sSel.toArray()[1] instanceof NamedTimeEvent && ((ResourcesEntryModel) model).getType() == Type.CURRENT_THREAD) {
                     ITmfTrace trace = getTrace(resourcesEntry);
                     NamedTimeEvent event = (NamedTimeEvent) sSel.toArray()[1];
-                    TmfTraceContext ctx = TmfTraceManager.getInstance().getCurrentTraceContext();
-                    Integer data = (Integer) ctx.getData(RESOURCES_FOLLOW_CURRENT_THREAD);
-                    int tid = data != null ? data.intValue() : -1;
-                    if (tid >= 0) {
-                        menuManager.add(new UnfollowThreadAction(ResourcesView.this));
+                    int tid = event.getValue();
+                    if (fTIDs.contains(tid)) {
+                        menuManager.add(new UnfollowThreadAction(ResourcesView.this, tid));
                     } else {
-                        menuManager.add(new FollowThreadAction(ResourcesView.this, null, event.getValue(), trace));
+                        fTIDs.add(tid);
+                        menuManager.add(new FollowThreadAction(ResourcesView.this, null, tid, trace));
                     }
                 }
             }
@@ -233,21 +236,31 @@ public class ResourcesView extends BaseDataProviderTimeGraphView {
      */
     @TmfSignalHandler
     public void listenToCurrentThread(TmfThreadSelectedSignal signal) {
-        int data = signal.getThreadId() >= 0 ? signal.getThreadId() : -1;
+        Integer data = signal.getThreadId();
         ITmfTrace trace = getTrace();
         if (trace == null) {
             return;
         }
-        TmfTraceManager.getInstance().updateTraceContext(trace,
-                builder -> builder.setData(RESOURCES_FOLLOW_CURRENT_THREAD, data));
-        if (data >= 0) {
-            fFollowThreadRegex = "Current_thread==" + ((Integer) data).toString(); //$NON-NLS-1$
+        if (fTIDs.contains(data)) {
+            fTIDs.remove(data);
+        }
+        else {
+            fTIDs.add(data);
+        }
+
+        if (!fTIDs.isEmpty()) {
+            fFollowThreadRegex = "Current_thread==" + fTIDs.get(0); //$NON-NLS-1$
+            for (int i =1; i < fTIDs.size(); i++) {
+                int tid = fTIDs.get(i);
+                fFollowThreadRegex += " || Current_thread==" + Integer.toString(tid); //$NON-NLS-1$
+            }
+            System.out.println(fFollowThreadRegex);
             ITimeGraphPresentationProvider2 presentationProvider = getPresentationProvider();
             if (presentationProvider instanceof TimeGraphPresentationProvider) {
                 ((TimeGraphPresentationProvider) presentationProvider).setTimegraphFilteringModeStatus(true);
             }
         } else {
-            fFollowThreadRegex=""; //$NON-NLS-1$
+            fFollowThreadRegex = ""; //$NON-NLS-1$
         }
         restartZoomThread();
     }
